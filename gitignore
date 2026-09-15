@@ -1,0 +1,13 @@
+# Ma'lumotlar bazasi fayli GIT'DA SAQLANMASLIGI KERAK - u faqat bot
+# ishlayotganda yaratiladi/yangilanadi va Telegram orqali zaxiralanadi
+# (bot.py ichidagi backup_database/restore_database_if_needed funksiyalari).
+# Agar bu fayl git'da qolib ketsa, har safar qayta deploy qilinganda
+# ESKIRGAN holat qaytarib qo'yiladi va yangi ma'lumotlar yo'qoladi.
+movies.db
+*.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,4 +1,51 @@
+Render logidagi xato aniq ko'rindi:
+`SyntaxError: unterminated string literal (detected at line 4127): f"✅ VIP status berildi!\n`
+Oldingi xabarda kod uzunligi chegaraga yetib qolib, `f"✅ VIP status berildi!\n` joyida matn uzilib qolgan ekan, siz uni aynan shu uzilgan holda Render’ga yuklagansiz. Shu sababli Render’da yangi kod ishga tusha olmay, eski versiya ishlab turgan bo‘lgan.
 
+Kodni sinchiklab tekshirib, barcha sintaktik xatolarni bartaraf qildim va scratch papkangizda tayyor fayl sifatida saqladim:
+👉 `C:\Users\asus\.gemini\antigravity\scratch\bot.py`
+
+Ushbu faylni to'g'ridan-to'g'ri o'z loyihangizga ko'chirib olishingiz mumkin. Shuningdek, to'liq va yaxlit kodni quyida keltiraman:
+
+```python
+"""
+Kod orqali post (video/rasm/matn) yuboruvchi Telegram bot.
+
+ISHLASH PRINSIPI:
+
+ADMIN uchun (/add):
+    1) Botga /add buyrug'ini yuboring
+    2) Bot "postni yuboring" deb so'raydi -> siz istalgan turdagi xabar
+       yuborasiz: video, rasm, hujjat, yoki oddiy matn
+    3) Bot "endi kodlarni yozing" deb so'raydi -> siz shu post uchun
+       BIR NECHTA kodni vergul bilan ajratib yozasiz, masalan:
+           12,avatar,avatr,avatar2
+    4) Bot "endi tugma nomini yozing" deb so'raydi -> "🎬 Barcha postlar"
+       ro'yxatida shu post qaysi nom bilan tugma sifatida chiqishini yozasiz,
+       masalan: Avatar: Suvning yo'li (2022)
+    5) Bot "✅ Saqlandi" deb javob beradi
+
+    Bekor qilish uchun istalgan vaqtda /cancel yozing yoki tugmani bosing.
+
+ADMIN PANEL (/admin):
+    Botga /admin buyrug'ini yuborsangiz, inline tugmali panel chiqadi:
+        ➕ Yangi post qo'shish  - post yuklash
+        🎮 O'yin qo'shish       - faqat VIP ko'radigan o'yin posti
+        ✏️ Postlarni tahrirlash - kod, nom, havola va ko'rinishni o'zgartirish
+        👥 Foydalanuvchilar     - bot foydalanuvchilari ro'yxati
+        ⭐ VIP berish           - foydalanuvchiga VIP muddat belgilash
+        📢 Reklama              - barcha yoki tanlangan guruhga reklama tarqatish
+        📊 Hisobot              - statistika
+        🗄 Baza guruhi          - postlar va baza nusxasi saqlanadigan guruh
+        📺 VIP kanal            - faqat VIP foydalanuvchilar kira oladigan kanal
+        🤖 Avto qo'shish        - so'rovlarni avto-tasdiqlash kanallari ro'yxati
+
+O'RNATISH:
+    pip install python-telegram-bot[job-queue]==21.6
+
+ISHGA TUSHIRISH:
+    python bot.py
+"""
 
 import asyncio
 import http.server
@@ -128,7 +175,6 @@ def _migrate_posts_table_if_needed(cur):
 
 
 def _migrate_auto_accept_channels_if_needed(cur):
-    """Eski bitta kanal (auto_accept_channel_id) saqlangan bo'lsa yangi jadvalga avtomatik ko'chiradi."""
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS auto_accept_channels (
@@ -2139,7 +2185,6 @@ async def broadcast_confirm_callback(update: Update, context: ContextTypes.DEFAU
             except Exception:
                 pass
 
-    # Reklama tarqatilgach chiqadigan xabar va ortga qaytish tugmalari
     await query.edit_message_text(
         f"✅ Reklama muvaffaqiyatli yuborildi!\n\n"
         f"Muvaffaqiyatli: {success} ta\n"
@@ -2571,7 +2616,7 @@ async def vip_receive_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     vip_until = get_vip_until(chat_id)
 
     await update.message.reply_text(
-        f"Foydalanuvchi: {chat_id}\nMuddat: {days} kun\n"
+        f"✅ VIP status berildi!\nFoydalanuvchi: {chat_id}\nMuddat: {days} kun\n"
         f"Tugash sanasi: {vip_until}"
     )
 
@@ -2918,7 +2963,6 @@ async def vipchannel_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============ "AVTO QO'SHISH" KANALLARINI SOZLASH ============
 
 async def render_autoaccept_list(query):
-    """'Avto qo'shish' kanallari ro'yxatini inline tugmalar sifatida ko'rsatadi."""
     channels = get_auto_accept_channels_list()
     keyboard = [[InlineKeyboardButton("➕ Yangi kanal qo'shish", callback_data="adm:autoacceptnew")]]
     for chat_id, title in channels:
@@ -3198,7 +3242,6 @@ async def handle_chat_join_request(update: Update, context: ContextTypes.DEFAULT
 
     vip_channel_id = get_vip_channel_id()
 
-    # Ro'yxatdagi istalgan "avto qo'shish" kanaliga so'rov kelsa avtomatik tasdiqlanadi
     if is_auto_accept_channel(chat_id):
         try:
             await context.bot.approve_chat_join_request(chat_id=chat_id, user_id=user_id)
@@ -3998,7 +4041,6 @@ def main():
         ],
     )
 
-    # "Avto qo'shish" faqat "➕ Yangi kanal qo'shish" bosilganda suhbat rejimiga kiradi
     autoaccept_conversation = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(autoaccept_new_start, pattern=r"^adm:autoacceptnew$"),
@@ -4090,7 +4132,6 @@ def main():
     app.add_handler(CallbackQueryHandler(adm_adsalways_item_detail_callback, pattern=r"^adm:adsalwaysitem:-?\d+$"))
     app.add_handler(CallbackQueryHandler(adm_adsalways_remove_callback, pattern=r"^adm:adsalwaysremove:-?\d+$"))
 
-    # "Avto qo'shish" tugmalari boshqaruvi
     app.add_handler(CallbackQueryHandler(adm_autoaccept_menu_callback, pattern=r"^adm:setautoaccept$"))
     app.add_handler(CallbackQueryHandler(adm_autoaccept_item_detail_callback, pattern=r"^adm:autoacceptitem:-?\d+$"))
     app.add_handler(CallbackQueryHandler(adm_autoaccept_remove_callback, pattern=r"^adm:autoacceptremove:-?\d+$"))
@@ -4102,7 +4143,6 @@ def main():
     app.add_handler(CallbackQueryHandler(adm_delpost_confirm_callback, pattern=r"^adm:delpost:\d+$"))
     app.add_handler(CallbackQueryHandler(adm_delpost_do_callback, pattern=r"^adm:delconfirm:\d+$"))
 
-    # Qo'shilish so'rovlarini avtomatik tasdiqlash
     app.add_handler(ChatJoinRequestHandler(handle_chat_join_request))
 
     app.add_handler(MessageHandler(filters.StatusUpdate.PINNED_MESSAGE, handle_pinned_service_message))
@@ -4123,5 +4163,3 @@ def main():
 if __name__ == "__main__":
     main()
 ```
-
-        f"✅ VIP status berildi!\n

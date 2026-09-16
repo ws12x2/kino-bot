@@ -1,59 +1,3 @@
-"""
-Kod orqali post (video/rasm/matn) yuboruvchi Telegram bot.
-
-ISHLASH PRINSIPI:
-
-ADMIN uchun (/add):
-    1) Botga /add buyrug'ini yuboring
-    2) Bot "postni yuboring" deb so'raydi -> siz istalgan turdagi xabar
-       yuborasiz: video, rasm, hujjat, yoki oddiy matn
-    3) Bot "endi kodlarni yozing" deb so'raydi -> siz shu post uchun
-       BIR NECHTA kodni vergul bilan ajratib yozasiz, masalan:
-           12,avatar,avatr,avatar2
-       (bir nechta kod yozish - foydalanuvchi imlo xatolarini hisobga olish
-       uchun, masalan "avatar" ham, "avatr" ham shu postga olib kelishi uchun)
-    4) Bot "endi tugma nomini yozing" deb so'raydi -> "🎬 Barcha postlar"
-       ro'yxatida shu post qaysi nom bilan tugma sifatida chiqishini yozasiz,
-       masalan: Avatar: Suvning yo'li (2022)
-    5) Bot "✅ Saqlandi" deb javob beradi
-
-    Bekor qilish uchun istalgan vaqtda /cancel yozing.
-
-ADMIN PANEL (/admin):
-    Botga /admin buyrug'ini yuborsangiz, quyidagi imkoniyatlarga ega
-    inline tugmali panel chiqadi:
-        ➕ Yangi post qo'shish  - /add bilan bir xil oqim, faqat tugma orqali
-        ✏️ Postlarni tahrirlash - mavjud postlar ro'yxati chiqadi, har birini
-                                   tanlab: kodlarini almashtirish, tugma
-                                   nomini o'zgartirish yoki postni butunlay
-                                   o'chirish mumkin
-
-FOYDALANUVCHI uchun:
-    Botga shunchaki kodni yozadi, masalan: avatar
-    -> bot mos postni (qanday turda saqlangan bo'lishidan qat'i nazar -
-       video, rasm yoki matn) topib, foydalanuvchiga yuboradi.
-
-    ADMINDAN BOSHQA (oddiy) foydalanuvchilar bilan suhbatda, bot har safar
-    xabar yuborgach, o'zidan oldingi xabarni EMAS, balki O'ZIDAN OLDINGI
-    XABARDAN OLDINGI xabarni avtomatik o'chiradi - shu orqali har doim
-    so'nggi 2 ta xabar (foydalanuvchining kodi + bot javobi) ko'rinishda
-    qoladi, undan oldingi tarix esa tozalanadi. Pastdagi tugmalar har bir
-    javobga qayta biriktiriladi, shuning uchun ular hech qachon yo'qolmaydi.
-
-MUHIM: bot faylni hech qachon o'ziga yuklamaydi - faqat admin bilan bo'lgan
-suhbatdagi asl xabarni Telegram serverlari orqali NUSXALAB (copy_message)
-foydalanuvchiga yuboradi. Shu sababli fayl hajmi (hatto to'liq kino bo'lsa
-ham) muammo qilmaydi.
-
-O'RNATISH:
-    pip install python-telegram-bot==21.6
-
-ISHGA TUSHIRISH:
-    1) BOT_TOKEN ni pastda o'z tokeningizga almashtiring (@BotFather dan oling)
-    2) ADMIN_IDS ro'yxatiga o'z Telegram ID raqamingizni yozing
-       (ID ni bilish uchun @userinfobot ga /start yuboring)
-    3) python bot.py
-"""
 
 import asyncio
 import http.server
@@ -81,22 +25,10 @@ from telegram.ext import (
 )
 
 # ============ SOZLAMALAR ============
-# BOT_TOKEN va DB_PATH avval Railway/server "Variables" bo'limidan o'qiladi
-# (agar bo'lmasa, pastdagi standart qiymat ishlatiladi - masalan kompyuterda
-# sinab ko'rish uchun).
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8993809045:AAEDrdA1ZqqIl17LrC0rPvwWwv-NohkB4HY")
 ADMIN_IDS = [5393636771]                    # Sizning Telegram user ID(lar)ingiz
 DB_PATH = os.environ.get("DB_PATH", "movies.db")
 
-# SAQLASH GURUHI (ixtiyoriy, lekin QATTIQ TAVSIYA ETILADI):
-# Agar bu sozlansa, /add orqali qo'shilgan har bir post AVTOMATIK shu
-# guruhga nusxalanadi va kelajakda o'sha yerdan yuboriladi - shuning uchun
-# admin o'zining shaxsiy bot-chatini tozalab tashlasa ham, postlar
-# GURUHDA xavfsiz qoladi. Sozlash uchun: guruh yarating, botni admin
-# qilib qo'shing, guruhda /chatid buyrug'ini yuboring va chiqqan raqamni
-# shu yerga (yoki STORAGE_CHAT_ID muhit o'zgaruvchisiga) yozing.
-# Sozlanmasa - eski usul (postlar admin bilan shaxsiy chatda saqlanadi)
-# davom etadi.
 _storage_chat_id_raw = os.environ.get("STORAGE_CHAT_ID", "").strip()
 STORAGE_CHAT_ID = int(_storage_chat_id_raw) if _storage_chat_id_raw.lstrip("-").isdigit() else None
 
@@ -104,25 +36,17 @@ BTN_KINOLAR = "🎬 Barcha postlar"
 BTN_VIP = "⭐ VIP"
 BTN_GAMES = "🎮 O'yinlar"
 BTN_STATUS = "👤 Mening statusim"
-VIP_CODE = "VIP"   # Admin qaysi postga shu kodni bersa ("vip" deb yozsa ham
-                    # bo'ladi - kodlar avtomatik katta harfga o'giriladi),
-                    # o'sha post ⭐ VIP tugmasi bosilganda yuboriladi.
-VIP_WELCOME_CODE = "VIP1"  # Admin VIP status berganda, yangi VIP foydalanuvchiga
-                            # avtomatik shu kodli post yuboriladi (masalan VIP
-                            # kanaliga taklifnoma yoki tarif haqida batafsil post).
-VIP_EXPIRED_CODE = "VIP2"  # VIP muddati tugaganda, foydalanuvchiga avtomatik
-                            # shu kodli post yuboriladi (masalan qayta VIP
-                            # olish haqida taklif/reklama posti).
+VIP_CODE = "VIP"
+VIP_WELCOME_CODE = "VIP1"
+VIP_EXPIRED_CODE = "VIP2"
 
 CATEGORY_MOVIE = "movie"
 CATEGORY_GAME = "game"
-CATEGORY_SYSTEM = "system"  # VIP1/VIP2 kabi "tizim postlari" - hech qanday
-                             # ro'yxatda yoki kod qidiruvida ko'rinmaydi,
-                             # faqat bot avtomatik yuborganda ishlaydi.
+CATEGORY_SYSTEM = "system"
 
-VISIBILITY_ALL = "all"       # Hammaga ko'rinadi
-VISIBILITY_VIP = "vip"       # Faqat VIP foydalanuvchilarga
-VISIBILITY_ADMIN = "admin"   # Faqat adminlarga (boshqalarga butunlay "ko'rinmas")
+VISIBILITY_ALL = "all"
+VISIBILITY_VIP = "vip"
+VISIBILITY_ADMIN = "admin"
 VISIBILITY_LABELS = {
     VISIBILITY_ALL: "👥 Hammaga",
     VISIBILITY_VIP: "⭐ Faqat VIP'lar",
@@ -137,7 +61,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 WAITING_POST, WAITING_CODES, WAITING_BUTTON_NAME, WAITING_EXTRA_LINK, WAITING_EXTRA_LINK_NAME, WAITING_VISIBILITY = range(6)
-# ConversationHandler holatlari (/add oqimi uchun)
 
 
 def is_admin(user_id: int) -> bool:
@@ -147,17 +70,12 @@ def is_admin(user_id: int) -> bool:
 # ============ BAZA ============
 
 def _migrate_codes_table_if_needed(cur):
-    """
-    Eski versiyalarda 'codes' jadvalida 'id' ustuni bo'lmagan bo'lishi mumkin.
-    Agar shunday bo'lsa, jadvalni ma'lumotlarni yo'qotmasdan yangi tuzilishga
-    avtomatik o'tkazadi.
-    """
     cur.execute("PRAGMA table_info(codes)")
     columns = [row[1] for row in cur.fetchall()]
     if not columns:
-        return  # jadval hali umuman yaratilmagan - keyin normal yaratiladi
+        return
     if "id" in columns:
-        return  # allaqachon yangi tuzilishda
+        return
 
     logger.info("Eski 'codes' jadvali topildi, yangi tuzilishga o'tkazilmoqda...")
     cur.execute("ALTER TABLE codes RENAME TO codes_old")
@@ -177,48 +95,59 @@ def _migrate_codes_table_if_needed(cur):
 
 
 def _migrate_users_table_if_needed(cur):
-    """Eski 'users' jadvalida ba'zi ustunlar bo'lmasligi mumkin - qo'shamiz."""
     cur.execute("PRAGMA table_info(users)")
     columns = [row[1] for row in cur.fetchall()]
     if not columns:
         return
     if "username" not in columns:
-        logger.info("'users' jadvaliga 'username' ustuni qo'shilmoqda...")
         cur.execute("ALTER TABLE users ADD COLUMN username TEXT")
     if "vip_until" not in columns:
-        logger.info("'users' jadvaliga 'vip_until' ustuni qo'shilmoqda...")
         cur.execute("ALTER TABLE users ADD COLUMN vip_until TIMESTAMP")
     if "vip_channel_removed" not in columns:
-        logger.info("'users' jadvaliga 'vip_channel_removed' ustuni qo'shilmoqda...")
         cur.execute("ALTER TABLE users ADD COLUMN vip_channel_removed INTEGER DEFAULT 0")
     if "ads_excluded" not in columns:
-        logger.info("'users' jadvaliga 'ads_excluded' ustuni qo'shilmoqda...")
         cur.execute("ALTER TABLE users ADD COLUMN ads_excluded INTEGER DEFAULT 0")
 
 
 def _migrate_posts_table_if_needed(cur):
-    """Eski 'posts' jadvalida ba'zi ustunlar bo'lmasligi mumkin - qo'shamiz."""
     cur.execute("PRAGMA table_info(posts)")
     columns = [row[1] for row in cur.fetchall()]
     if not columns:
         return
     if "button_name" not in columns:
-        logger.info("'posts' jadvaliga 'button_name' ustuni qo'shilmoqda...")
         cur.execute("ALTER TABLE posts ADD COLUMN button_name TEXT")
     if "extra_button_text" not in columns:
-        logger.info("'posts' jadvaliga 'extra_button_text' ustuni qo'shilmoqda...")
         cur.execute("ALTER TABLE posts ADD COLUMN extra_button_text TEXT")
     if "extra_button_url" not in columns:
-        logger.info("'posts' jadvaliga 'extra_button_url' ustuni qo'shilmoqda...")
         cur.execute("ALTER TABLE posts ADD COLUMN extra_button_url TEXT")
     if "category" not in columns:
-        logger.info("'posts' jadvaliga 'category' ustuni qo'shilmoqda...")
-        # Standart qiymat 'movie' - eski postlarning barchasi "Barcha postlar"da qolishi uchun
         cur.execute("ALTER TABLE posts ADD COLUMN category TEXT DEFAULT 'movie'")
     if "visibility" not in columns:
-        logger.info("'posts' jadvaliga 'visibility' ustuni qo'shilmoqda...")
-        # Standart qiymat 'all' - eski postlar hammaga ko'rinishda qolishi uchun
         cur.execute("ALTER TABLE posts ADD COLUMN visibility TEXT DEFAULT 'all'")
+
+
+def _migrate_auto_accept_channels_if_needed(cur):
+    """Eski bitta kanal sozlamasi (auto_accept_channel_id) bo'lsa, yangi jadvalga ko'chiradi."""
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auto_accept_channels (
+            chat_id INTEGER PRIMARY KEY,
+            title TEXT,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    try:
+        cur.execute("SELECT value FROM settings WHERE key = 'auto_accept_channel_id'")
+        row = cur.fetchone()
+        if row and row[0]:
+            cid = int(row[0])
+            cur.execute(
+                "INSERT OR IGNORE INTO auto_accept_channels (chat_id, title) VALUES (?, ?)",
+                (cid, str(cid)),
+            )
+    except Exception:
+        pass
 
 
 def init_db():
@@ -303,27 +232,12 @@ def init_db():
         )
         """
     )
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS broadcast_always (
-            chat_id INTEGER PRIMARY KEY,
-            label TEXT,
-            kind TEXT DEFAULT 'user',
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
+    _migrate_auto_accept_channels_if_needed(cur)
     conn.commit()
     conn.close()
 
 
 def get_setting(key: str, default=None):
-    """
-    Sozlamani o'qiydi. Agar 'settings' jadvali hali yaratilmagan bo'lsa
-    (masalan bot birinchi marta, hali init_db() chaqirilmasdan oldin,
-    zaxiradan tiklashga urinayotganda) - xatoga uchramasdan shunchaki
-    standart qiymatni qaytaradi.
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
@@ -348,11 +262,6 @@ def set_setting(key: str, value: str):
 
 
 def get_storage_chat_id():
-    """
-    Baza (saqlash) guruhining chat_id'sini qaytaradi.
-    Avval bazada admin panel orqali sozlangan qiymatni tekshiradi,
-    topilmasa kod ichidagi STORAGE_CHAT_ID standart qiymatiga qaytadi.
-    """
     value = get_setting("storage_chat_id")
     if value:
         try:
@@ -363,7 +272,6 @@ def get_storage_chat_id():
 
 
 def get_vip_channel_id():
-    """VIP kanal sifatida sozlangan chat_id'ni qaytaradi (sozlanmagan bo'lsa None)."""
     value = get_setting("vip_channel_id")
     if value:
         try:
@@ -373,21 +281,58 @@ def get_vip_channel_id():
     return None
 
 
+# ============ "AVTO QO'SHISH" BAZA FUNKSIYALARI ============
+
+def get_auto_accept_channel_ids():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT chat_id FROM auto_accept_channels")
+    rows = [r[0] for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def is_auto_accept_channel(chat_id: int) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM auto_accept_channels WHERE chat_id = ?", (chat_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row is not None
+
+
+def add_auto_accept_channel(chat_id: int, title: str):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        """INSERT INTO auto_accept_channels (chat_id, title) VALUES (?, ?)
+           ON CONFLICT(chat_id) DO UPDATE SET title = excluded.title""",
+        (chat_id, title),
+    )
+    conn.commit()
+    conn.close()
+
+
+def remove_auto_accept_channel(chat_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM auto_accept_channels WHERE chat_id = ?", (chat_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_auto_accept_channels_list():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT chat_id, title FROM auto_accept_channels ORDER BY added_at ASC")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
 def get_auto_accept_channel_id():
-    """
-    "Avto qo'shish" kanali sifatida sozlangan chat_id'ni qaytaradi
-    (sozlanmagan bo'lsa None). Bu kanalga yuborilgan HAR QANDAY qo'shilish
-    so'rovi - VIP statusidan qat'i nazar - avtomatik tasdiqlanadi, va
-    (VIP kanaldan farqli o'laroq) hech kim keyinchalik avtomatik chiqarib
-    yuborilmaydi.
-    """
-    value = get_setting("auto_accept_channel_id")
-    if value:
-        try:
-            return int(value)
-        except ValueError:
-            pass
-    return None
+    ids = get_auto_accept_channel_ids()
+    return ids[0] if ids else None
 
 
 def save_post(
@@ -419,8 +364,6 @@ def save_codes(codes: list, post_id: int):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     for code in codes:
-        # Kod allaqachon mavjud bo'lsa - post_id'ni yangilaymiz (qayta bog'lash),
-        # aks holda yangi qator qo'shamiz (insert tartibi id orqali saqlanadi).
         cur.execute(
             """INSERT INTO codes (code, post_id) VALUES (?, ?)
                ON CONFLICT(code) DO UPDATE SET post_id = excluded.post_id""",
@@ -442,7 +385,7 @@ def get_post_by_code(code: str):
     )
     row = cur.fetchone()
     conn.close()
-    return row  # (chat_id, message_id, preview, extra_button_text, extra_button_url, category, visibility) yoki None
+    return row
 
 
 def delete_code(code: str) -> bool:
@@ -456,15 +399,6 @@ def delete_code(code: str) -> bool:
 
 
 def _post_sort_key(code: str, category: str, post_id: int):
-    """
-    Postlarni tartiblash uchun kalit hisoblaydi:
-    - 'movie' kategoriyasida: kod TO'LIQ raqamdan iborat bo'lsa (masalan "1", "10"),
-      o'sha raqam bo'yicha o'sish tartibida joylashadi (1, 2, ..., 10, ...).
-    - 'game' kategoriyasida: kod "G" harfi bilan boshlanib, undan keyin raqam
-      kelsa (masalan "G1", "G2", "G10"), o'sha raqam bo'yicha tartiblanadi.
-    - Bu shartlarga mos kelmagan kodlar (masalan "avatar", "pubg") - RO'YXAT
-      OXIRIGA tushadi, o'z orasida qo'shilgan tartibida (post_id bo'yicha) qoladi.
-    """
     c = (code or "").strip().upper()
     if category == CATEGORY_GAME:
         if c.startswith("G") and c[1:].isdigit():
@@ -477,17 +411,6 @@ def _post_sort_key(code: str, category: str, post_id: int):
 
 
 def list_all_codes(category: str = CATEGORY_MOVIE):
-    """
-    Berilgan kategoriyadagi ('movie' yoki 'game') har bir post uchun faqat
-    BIRINCHI qo'shilgan kodni qaytaradi (soddalik uchun). Tugma matni
-    sifatida admin kiritgan 'button_name' ishlatiladi; agar u kiritilmagan
-    bo'lsa (eski postlar), avtomatik 'preview' ishlatiladi. 'visibility'
-    ustuni ham qaytariladi - chaqiruvchi tomon buni ko'ruvchining
-    huquqiga qarab filtrlashi kerak (filter_rows_by_visibility funksiyasi).
-
-    Natija RAQAMLI KOD bo'yicha tartiblangan holda qaytariladi (pastdagi
-    _post_sort_key izohiga qarang).
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -507,11 +430,6 @@ def list_all_codes(category: str = CATEGORY_MOVIE):
 
 
 def filter_rows_by_visibility(rows, viewer_id: int):
-    """
-    list_all_codes() natijasini (code, label, post_id, visibility) ko'ruvchi
-    huquqiga qarab filtrlaydi va (code, label, post_id) uchligini qaytaradi
-    (build_posts_page_markup shu formatni kutadi).
-    """
     if is_admin(viewer_id):
         allowed = {VISIBILITY_ALL, VISIBILITY_VIP, VISIBILITY_ADMIN}
     elif is_vip(viewer_id):
@@ -522,26 +440,7 @@ def filter_rows_by_visibility(rows, viewer_id: int):
     return [(code, label, post_id) for code, label, post_id, vis in rows if vis in allowed]
 
 
-
-    """Barcha postlarni (post_id, nom, kategoriya) ko'rinishida qaytaradi - admin panel uchun."""
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute(
-        """SELECT post_id, COALESCE(button_name, preview) AS label, COALESCE(category, 'movie')
-           FROM posts ORDER BY post_id"""
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-
-
 def get_all_posts():
-    """
-    Barcha oddiy postlarni (post_id, nom, kategoriya) ko'rinishida qaytaradi -
-    "Postlarni tahrirlash" admin bo'limi uchun. 'system' kategoriyasidagi
-    postlar (VIP1/VIP2 kabi) BU YERGA QO'SHILMAYDI - ular faqat o'zlarining
-    maxsus admin tugmalari (VIP boshlanish/tugash posti) orqali boshqariladi.
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -554,7 +453,6 @@ def get_all_posts():
 
 
 def get_codes_for_post(post_id: int):
-    """Berilgan post uchun barcha kodlarni ro'yxat sifatida qaytaradi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT code FROM codes WHERE post_id = ? ORDER BY id", (post_id,))
@@ -564,7 +462,6 @@ def get_codes_for_post(post_id: int):
 
 
 def replace_codes_for_post(post_id: int, codes: list):
-    """Berilgan postning ESKI barcha kodlarini o'chirib, YANGI kodlar bilan almashtiradi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("DELETE FROM codes WHERE post_id = ?", (post_id,))
@@ -582,7 +479,6 @@ def update_post_button_name(post_id: int, button_name: str):
 
 
 def update_post_link(post_id: int, extra_button_text, extra_button_url):
-    """Postning link-tugmasini yangilaydi. None qiymatlar tugmani olib tashlaydi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -602,7 +498,6 @@ def update_post_visibility(post_id: int, visibility: str):
 
 
 def get_post_details(post_id: int):
-    """Bitta post haqida to'liq ma'lumot qaytaradi (admin tahrirlash paneli uchun)."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -613,11 +508,10 @@ def get_post_details(post_id: int):
     )
     row = cur.fetchone()
     conn.close()
-    return row  # (button_name, extra_button_text, extra_button_url, visibility, category) yoki None
+    return row
 
 
 def delete_post(post_id: int):
-    """Postni va unga bog'liq BARCHA kodlarni butunlay o'chiradi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("DELETE FROM codes WHERE post_id = ?", (post_id,))
@@ -627,13 +521,6 @@ def delete_post(post_id: int):
 
 
 def save_user(chat_id: int, username: str = None):
-    """
-    Botdan foydalangan har bir foydalanuvchini (reklama tarqatish va VIP
-    berish uchun, username orqali qidirish uchun) eslab qoladi, shuningdek
-    har bir murojaatni 'activity' jadvaliga yozib boradi (statistika/hisobot
-    uchun - bugungi/oylik faol foydalanuvchilar sonini hisoblash uchun
-    ishlatiladi).
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -650,12 +537,6 @@ def save_user(chat_id: int, username: str = None):
 
 
 def find_user_chat_id(identifier: str):
-    """
-    Admin kiritgan ID raqami yoki @username bo'yicha foydalanuvchining
-    chat_id'sini topadi. Faqat botga kamida bir marta murojaat qilgan
-    foydalanuvchilar orasidan qidiradi (chunki bot boshqa foydalanuvchi
-    haqida hech narsa bilmaydi).
-    """
     identifier = identifier.strip()
     if identifier.startswith("@"):
         identifier = identifier[1:]
@@ -672,7 +553,6 @@ def find_user_chat_id(identifier: str):
 
 
 def set_vip(chat_id: int, days: int):
-    """Foydalanuvchiga berilgan kun sonicha VIP status beradi (hozirgi vaqtdan boshlab)."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -704,23 +584,6 @@ def get_username(chat_id: int):
 
 
 def get_vip_users():
-    """Hozir FAOL VIP statusga ega barcha foydalanuvchilarni (muddati eng
-    yaqin tugaydigani birinchi) qaytaradi: (chat_id, username, vip_until)."""
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute(
-        """SELECT chat_id, username, vip_until FROM users
-           WHERE vip_until IS NOT NULL AND vip_until > datetime('now')
-           ORDER BY vip_until ASC"""
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-
-
-def get_vip_users():
-    """Hozir VIP muddati faol bo'lgan barcha foydalanuvchilarni (chat_id, username, vip_until)
-    ko'rinishida, tugash sanasi bo'yicha o'sish tartibida qaytaradi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -734,20 +597,6 @@ def get_vip_users():
 
 
 def adjust_vip_days(chat_id: int, delta_days: int) -> bool:
-    """
-    Foydalanuvchining VIP tugash sanasiga berilgan kun sonini qo'shadi
-    (delta_days manfiy bo'lsa - ayiradi). Agar hozircha VIP bo'lmasa,
-    hozirgi vaqtdan boshlab hisoblanadi.
-
-    - Agar muddat UZAYTIRILSA (delta_days > 0): 'vip_channel_removed'
-      bayrog'i 0 ga qaytariladi - shunda kelajakda bu YANGI muddat ham
-      tugaganda, bot buni albatta payqab, kanaldan chiqarish/VIP2 xabarini
-      yuborishni bajaradi (aks holda eski bayroq saqlanib qolib, ikkinchi
-      marta tugashi butunlay e'tiborsiz qolib ketishi mumkin edi).
-    - Qaytaradi: True - agar shu amaldan keyin VIP muddati o'tib ketgan
-      (darhol tugagan) bo'lsa, aks holda False. Buni chaqiruvchi tomon
-      darhol _process_single_vip_expiry chaqirish uchun ishlatishi kerak.
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT vip_until FROM users WHERE chat_id = ?", (chat_id,))
@@ -776,7 +625,6 @@ def adjust_vip_days(chat_id: int, delta_days: int) -> bool:
 
 
 def revoke_vip(chat_id: int):
-    """Foydalanuvchining VIP statusini butunlay bekor qiladi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("UPDATE users SET vip_until = NULL WHERE chat_id = ?", (chat_id,))
@@ -785,7 +633,6 @@ def revoke_vip(chat_id: int):
 
 
 def is_vip(chat_id: int) -> bool:
-    """Adminlar HAR DOIM VIP hisoblanadi (cheksiz). Boshqalar uchun vip_until tekshiriladi."""
     if is_admin(chat_id):
         return True
     conn = sqlite3.connect(DB_PATH)
@@ -800,7 +647,6 @@ def is_vip(chat_id: int) -> bool:
 
 
 def log_search(chat_id: int, code: str, found: bool):
-    """Har bir kod qidiruvini (topilgan yoki topilmagan) 'searches' jadvaliga yozadi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -812,7 +658,6 @@ def log_search(chat_id: int, code: str, found: bool):
 
 
 def get_stats():
-    """Admin panel uchun hisobot ma'lumotlarini hisoblab qaytaradi."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
@@ -855,12 +700,6 @@ def get_all_user_chat_ids(exclude_admins: bool = True):
 
 
 def get_user_chat_ids_by_audience(audience: str):
-    """
-    Reklama tarqatish uchun foydalanuvchilarni auditoriya bo'yicha filtrlab qaytaradi.
-    audience: 'regular' (faqat VIP bo'lmaganlar), 'vip' (faqat VIP'lar), 'all' (hammasi).
-    Har uch holatda ham adminlar VA "reklama yuborilmaydiganlar" ro'yxatidagi
-    foydalanuvchilar (ads_excluded=1) chiqarib tashlanadi - statusidan qat'i nazar.
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     if audience == "vip":
@@ -873,7 +712,7 @@ def get_user_chat_ids_by_audience(audience: str):
             """SELECT chat_id FROM users WHERE (vip_until IS NULL OR vip_until <= datetime('now'))
                AND COALESCE(ads_excluded, 0) = 0"""
         )
-    else:  # "all"
+    else:
         cur.execute("SELECT chat_id FROM users WHERE COALESCE(ads_excluded, 0) = 0")
     rows = [r[0] for r in cur.fetchall()]
     conn.close()
@@ -881,7 +720,6 @@ def get_user_chat_ids_by_audience(audience: str):
 
 
 def get_excluded_ads_users():
-    """Reklama yuborilmaydigan (ads_excluded=1) foydalanuvchilarni qaytaradi: (chat_id, username)."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -921,7 +759,6 @@ def remove_always_send(chat_id: int):
 
 
 def get_always_send_list():
-    """('Doim yuboriladi' ro'yxati) (chat_id, label, kind) - kind: 'user' yoki 'channel'."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT chat_id, label, kind FROM broadcast_always ORDER BY chat_id")
@@ -940,28 +777,12 @@ def get_always_send_chat_ids():
 
 
 def get_broadcast_recipients(audience: str):
-    """
-    Yakuniy reklama qabul qiluvchilar ro'yxati:
-    (auditoriya bo'yicha filtrlangan foydalanuvchilar) + ("Doim yuboriladi"
-    ro'yxatidagilar - foydalanuvchi HAM, kanal HAM bo'lishi mumkin).
-    "Doim yuboriladi" ro'yxati "Reklama yuborilmaydiganlar" cheklovidan ham
-    USTUN turadi - u yerga qo'shilgan chat har doim reklamani oladi.
-    """
     audience_ids = set(get_user_chat_ids_by_audience(audience))
     always_ids = set(get_always_send_chat_ids())
     return sorted(audience_ids | always_ids)
 
 
 async def resolve_broadcast_target(context: ContextTypes.DEFAULT_TYPE, message):
-    """
-    Admin "Doim yuboriladi" ro'yxatiga biror narsa qo'shmoqchi bo'lganda,
-    yuborgan xabarini (forward, @username, havola yoki ID) FOYDALANUVCHI
-    yoki KANAL sifatida aniqlashga harakat qiladi.
-
-    Qaytaradi: (chat_id, label, kind) - muvaffaqiyatli bo'lsa
-               (None, xato_matni, None) - muvaffaqiyatsiz bo'lsa
-    """
-    # 1) Forward qilingan xabar bo'lsa (odatda kanaldan) - undan chat'ni olamiz
     origin = getattr(message, "forward_origin", None)
     candidate_chat_id = None
     if origin is not None and getattr(origin, "chat", None) is not None:
@@ -989,14 +810,12 @@ async def resolve_broadcast_target(context: ContextTypes.DEFAULT_TYPE, message):
     if not text:
         return None, "❌ Tushunarsiz format.", None
 
-    # 2) Avval oddiy FOYDALANUVCHI sifatida qidiramiz (ID yoki @username)
     user_chat_id = find_user_chat_id(text)
     if user_chat_id is not None:
         username = get_username(user_chat_id)
         label = f"@{username}" if username else str(user_chat_id)
         return user_chat_id, label, "user"
 
-    # 3) Foydalanuvchi topilmasa - KANAL/GURUH sifatida sinab ko'ramiz
     candidate = None
     if text.startswith("@"):
         candidate = text
@@ -1036,11 +855,6 @@ async def resolve_broadcast_target(context: ContextTypes.DEFAULT_TYPE, message):
 
 
 def get_users_page(page: int = 0, page_size: int = 20):
-    """
-    Foydalanuvchilarni sahifalab qaytaradi (admin panel > Foydalanuvchilar
-    bo'limi uchun). Har bir qator: (chat_id, username, vip_until).
-    Qaytaradi: (rows, total_count)
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM users")
@@ -1058,7 +872,6 @@ def get_users_page(page: int = 0, page_size: int = 20):
 # ============ YORDAMCHI FUNKSIYALAR ============
 
 def make_preview(message) -> str:
-    """Post uchun qisqa tavsif (ichki, admin uchun)."""
     if message.text:
         return message.text.strip()[:50]
     if message.caption:
@@ -1081,25 +894,12 @@ def make_preview(message) -> str:
 
 
 def parse_codes(text: str):
-    """"12,avatar,avatr" -> ['12', 'AVATAR', 'AVATR'] (bo'sh qatorlar chiqarib tashlanadi)."""
     raw_parts = text.split(",")
     codes = [p.strip() for p in raw_parts if p.strip()]
     return codes
 
 
 async def track_and_trim(update: Update, context: ContextTypes.DEFAULT_TYPE, sent_message, include_incoming: bool = True):
-    """
-    Har bir foydalanuvchi (ADMIN HAM shu jumladan) bilan suhbatda, chatdagi
-    xabarlar tarixini (shu chat uchun context.chat_data ichida) kuzatib
-    boradi va har safar yangi xabar yuborilgach, SO'NGGI 2 TADAN BOSHQA
-    barcha eski xabarlarni o'chirib tashlaydi. Natijada chatda doim faqat
-    oxirgi almashinuv (foydalanuvchi kodi/tugmasi + bot javobi) ko'rinishda
-    qoladi.
-
-    Eslatma: tarix botning joriy ishga tushishi davomida xotirada saqlanadi -
-    bot qayta ishga tushirilsa, eski (avvalgi sessiyadagi) xabarlar
-    "unutiladi" va endi avtomatik o'chirilmaydi.
-    """
     chat_id = update.effective_chat.id
     history = context.chat_data.setdefault("recent_ids", [])
 
@@ -1117,8 +917,6 @@ async def track_and_trim(update: Update, context: ContextTypes.DEFAULT_TYPE, sen
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=mid)
         except Exception:
-            # Xabar allaqachon o'chirilgan, juda eski (48 soatdan katta),
-            # yoki umuman mavjud emas bo'lishi mumkin - e'tiborsiz qoldiramiz.
             pass
 
     context.chat_data["recent_ids"] = keep
@@ -1127,15 +925,8 @@ async def track_and_trim(update: Update, context: ContextTypes.DEFAULT_TYPE, sen
 # ============ /add SUHBATI (ADMIN) ============
 
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/add (yoki /add_game) buyrug'i orqali HAM, admin panelidagi tegishli
-    tugma orqali HAM ishga tushishi mumkin. Qaysi trigger ishlatilganiga
-    qarab, post 'movie' yoki 'game' kategoriyasida saqlanadi.
-
-    Butun suhbat davomida almashiladigan HAR BIR xabar (admin) 'add_flow_msg_ids'
-    ro'yxatida kuzatib boriladi - post/o'yin to'liq saqlangach, ular barchasi
-    birdek o'chiriladi va faqat yakuniy natija matni qoladi."""
     user_id = update.effective_user.id
-    context.user_data["add_flow_msg_ids"] = []  # yangi sessiya - eski qoldiqlarni tozalaymiz
+    context.user_data["add_flow_msg_ids"] = []
 
     if update.callback_query:
         query = update.callback_query
@@ -1179,10 +970,6 @@ async def add_receive_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
     category = context.user_data.pop("pending_category", CATEGORY_MOVIE)
     flow_ids = context.user_data.setdefault("add_flow_msg_ids", [])
 
-    # Agar "saqlash guruhi" sozlangan bo'lsa (admin panel orqali yoki kodda),
-    # postni ADMIN bilan shaxsiy chatda emas, balki o'sha guruhda saqlaymiz -
-    # shunda admin o'z shaxsiy chat tarixini tozalab tashlasa ham, post
-    # xavfsiz qoladi.
     storage_chat_id = message.chat_id
     storage_message_id = message.message_id
     copied_to_storage = False
@@ -1211,14 +998,9 @@ async def add_receive_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             flow_ids.append(warn.message_id)
 
-    # MUHIM: asl post xabarini FAQAT nusxa muvaffaqiyatli olinganda tozalash
-    # ro'yxatiga qo'shamiz - aks holda bu xabarning O'ZI "baza" bo'lib
-    # qolgani uchun, uni o'chirsak post butunlay ishlamay qoladi.
     if copied_to_storage:
         flow_ids.append(message.message_id)
 
-    # Postning o'zini vaqtincha saqlab qo'yamiz (kodlar va tugma nomi
-    # kelgandan keyin bazaga yozamiz)
     context.user_data["pending_post"] = {
         "chat_id": storage_chat_id,
         "message_id": storage_message_id,
@@ -1240,9 +1022,7 @@ async def add_receive_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_receive_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = context.user_data.get("pending_post")
     if not pending:
-        await update.message.reply_text(
-            "⚠️ Avval /add buyrug'i bilan boshlang."
-        )
+        await update.message.reply_text("⚠️ Avval /add buyrug'i bilan boshlang.")
         return ConversationHandler.END
 
     flow_ids = context.user_data.setdefault("add_flow_msg_ids", [])
@@ -1273,9 +1053,7 @@ async def add_receive_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_receive_button_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = context.user_data.get("pending_post")
     if not pending or "codes" not in pending:
-        await update.message.reply_text(
-            "⚠️ Avval /add buyrug'i bilan boshlang."
-        )
+        await update.message.reply_text("⚠️ Avval /add buyrug'i bilan boshlang.")
         return ConversationHandler.END
 
     flow_ids = context.user_data.setdefault("add_flow_msg_ids", [])
@@ -1361,7 +1139,6 @@ async def add_receive_extra_link_name(update: Update, context: ContextTypes.DEFA
 
 
 async def _ask_visibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Postni saqlashdan oldin oxirgi savol - kimlar ko'ra oladi?"""
     keyboard = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(VISIBILITY_LABELS[VISIBILITY_ALL], callback_data=f"addvis:{VISIBILITY_ALL}")],
@@ -1379,11 +1156,6 @@ async def _ask_visibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def add_receive_visibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin ko'rinish huquqi tugmalaridan birini bosganda ishga tushadi.
-    Post/o'yin bazaga muvaffaqiyatli saqlangach, BUTUN suhbat davomidagi
-    barcha oraliq xabarlar (post, kodlar, tugma nomi, link savollari,
-    ko'rinish huquqi savoli) o'chirib tashlanadi - faqat yakuniy natija
-    (pastda 2 ta navigatsiya tugmasi bilan) qoladi."""
     query = update.callback_query
     await query.answer()
 
@@ -1392,7 +1164,7 @@ async def add_receive_visibility(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text("⚠️ Sessiya topilmadi. /add orqali qaytadan boshlang.")
         return ConversationHandler.END
 
-    visibility = query.data.split(":")[1]  # "addvis:all" -> "all"
+    visibility = query.data.split(":")[1]
     if visibility not in (VISIBILITY_ALL, VISIBILITY_VIP, VISIBILITY_ADMIN):
         visibility = VISIBILITY_ALL
     pending["visibility"] = visibility
@@ -1426,8 +1198,6 @@ async def add_receive_visibility(update: Update, context: ContextTypes.DEFAULT_T
 
     chat_id = query.message.chat_id
 
-    # Butun /add suhbatidagi barcha oraliq xabarlarni o'chiramiz - shu
-    # jumladan "Kimlar ko'rsin?" savolining o'zi ham (query.message).
     flow_ids = context.user_data.pop("add_flow_msg_ids", [])
     flow_ids.append(query.message.message_id)
     for mid in flow_ids:
@@ -1447,33 +1217,13 @@ async def add_receive_visibility(update: Update, context: ContextTypes.DEFAULT_T
 
 
 def home_button_row():
-    """
-    Admin panelning istalgan ichki sahifasiga qo'shiladigan qayta
-    ishlatiladigan qator - "🔙 Orqaga" tugmasi yonida/ostida, foydalanuvchi
-    (admin) istalgan chuqurlikdan BIR BOSISHDA asosiy (pastdagi doimiy
-    tugmali) menyuga chiqib ketishi uchun.
-    """
     return [InlineKeyboardButton("🏠 Bosh menyu", callback_data="adm:backhome")]
 
 
 async def adm_backhome_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Istalgan admin panel sahifasidagi "🏠 Bosh menyu" tugmasi bosilganda
-    ishga tushadi - eski xabarni o'chirib, o'rniga pastdagi doimiy tugmalar
-    (Barcha postlar/VIP/O'yinlar/Mening statusim) bilan birga YANGI "Bosh
-    menyu" xabarini yuboradi. Buni ataylab shunday qilamiz (shunchaki eski
-    xabarni o'chirib qo'ymasdan) - chunki oldingi tajribada, pastdagi
-    klaviatura faqat uni QAYTA BIRIKTIRGAN xabar orqali kafolatlanadi, aks
-    holda ba'zan ko'rinmay qolishi mumkin edi.
-
-    MUHIM: bu funksiya har bir ConversationHandler'ning `fallbacks`
-    ro'yxatiga ham qo'shilgan - shuning uchun agar admin biror suhbat
-    (masalan post qo'shish, VIP muddatini o'zgartirish) ICHIDA turib shu
-    tugmani bossa, o'sha suhbat holati ham TO'G'RI YAKUNLANADI (osilib
-    qolmaydi), aks holda keyingi, aloqasiz xabar noto'g'ri talqin qilinishi
-    mumkin edi."""
     query = update.callback_query
     await query.answer()
-    context.user_data.clear()  # suhbat holatiga oid barcha vaqtinchalik ma'lumotlarni tozalaymiz
+    context.user_data.clear()
     try:
         await query.message.delete()
     except Exception:
@@ -1540,13 +1290,6 @@ CATEGORY_ICONS = {
 
 
 def build_posts_page_markup(rows, page: int, category: str = CATEGORY_MOVIE):
-    """
-    Postlar ro'yxatini sahifalab (har sahifada 10 tadan) InlineKeyboardMarkup
-    ko'rinishida quradi. Pastida doim ❌ Yopish tugmasi bo'ladi; agar bir
-    nechta sahifa bo'lsa, uning chap va o'ng tomonida ◀️/▶️ tugmalari chiqadi.
-    'category' navigatsiya tugmalari to'g'ri ro'yxatga qaytishi uchun
-    callback_data ichiga yoziladi. matn, markup ni qaytaradi.
-    """
     total = len(rows)
     total_pages = max(1, (total + POSTS_PER_PAGE - 1) // POSTS_PER_PAGE)
     page = max(0, min(page, total_pages - 1))
@@ -1576,9 +1319,8 @@ def build_posts_page_markup(rows, page: int, category: str = CATEGORY_MOVIE):
 
 
 async def show_posts_list(update: Update, context: ContextTypes.DEFAULT_TYPE, category: str = CATEGORY_MOVIE):
-    """'Barcha postlar' yoki 'O'yinlar' ro'yxatini ko'rsatadi (kategoriya bo'yicha)."""
     user_id = update.effective_user.id
-    keyboard = main_menu_markup()  # pastdagi tugmalar ADMIN uchun ham doim ko'rinadi
+    keyboard = main_menu_markup()
 
     chat_id = update.effective_chat.id
 
@@ -1606,28 +1348,19 @@ async def show_posts_list(update: Update, context: ContextTypes.DEFAULT_TYPE, ca
     text, markup = build_posts_page_markup(rows, page=0, category=category)
     sent = await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
 
-    # DIQQAT: bu sahifa oddiy track_and_trim orqali avtomatik O'CHIRILMAYDI -
-    # u faqat ❌ Yopish tugmasi bosilganda YOKI pastdagi menyudan (Barcha
-    # postlar/VIP/O'yinlar/Mening statusim) biri bosilganda o'chiriladi.
-    # Shu ro'yxatdan ketma-ket bir nechta post tanlansa, HAR SAFAR faqat
-    # OXIRGI tanlangan post ko'rinishda qoladi - oldingisi avtomatik
-    # o'chiriladi (chatni chalkash qilib yubormaslik uchun).
     context.chat_data["open_list_message_id"] = sent.message_id
     context.chat_data["open_list_last_post_id"] = None
 
 
 async def list_movies(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/list buyrug'i va "🎬 Barcha postlar" tugmasi uchun."""
     await show_posts_list(update, context, category=CATEGORY_MOVIE)
 
 
 async def list_games(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/games buyrug'i va "🎮 O'yinlar" tugmasi uchun."""
     await show_posts_list(update, context, category=CATEGORY_GAME)
 
 
 async def show_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """"👤 Mening statusim" tugmasi bosilganda - foydalanuvchining tarifi haqida ma'lumot beradi."""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
@@ -1651,8 +1384,6 @@ async def show_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await track_and_trim(update, context, sent)
 
-        # VIP foydalanuvchiga VIP1 kodli postni ham yuboramiz (bu "system"
-        # posti, shuning uchun allow_system=True bilan chetlab o'tiladi)
         vip_post = await send_post_for_code(
             VIP_WELCOME_CODE, update.effective_chat.id, context, allow_system=True
         )
@@ -1673,12 +1404,10 @@ async def show_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_list_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """◀️/▶️ tugmalari bosilganda - ro'yxatni boshqa sahifaga (shu kategoriya ichida) almashtiradi."""
     query = update.callback_query
     await query.answer()
 
     parts = query.data.split(":")
-    # Format: "listpage:<category>:<page>"
     category = parts[1] if len(parts) >= 3 else CATEGORY_MOVIE
     try:
         page = int(parts[2]) if len(parts) >= 3 else int(parts[1])
@@ -1702,8 +1431,6 @@ async def handle_list_page_callback(update: Update, context: ContextTypes.DEFAUL
 
 
 async def handle_list_close_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """❌ Yopish tugmasi bosilganda - ro'yxat xabarini VA shu ro'yxatdan
-    tanlab ochilgan (oxirgi) postni birga o'chiradi."""
     query = update.callback_query
     await query.answer()
 
@@ -1721,7 +1448,6 @@ async def handle_list_close_callback(update: Update, context: ContextTypes.DEFAU
             except Exception:
                 pass
     else:
-        # Sessiya kuzatilmagan bo'lsa ham, kamida shu xabarni o'chiramiz
         try:
             await query.message.delete()
         except Exception:
@@ -1747,24 +1473,24 @@ async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ============ ADMIN PANEL (/admin) ============
 
-WAITING_EDIT_VALUE = 100  # Tahrirlash suhbati uchun alohida ConversationHandler holati
-WAITING_EDIT_LINK_URL = 101  # Link-tugma URL'ini tahrirlash holati
-WAITING_EDIT_LINK_NAME = 102  # Link-tugma nomini tahrirlash holati
-WAITING_BROADCAST_AUDIENCE = 199  # Reklama auditoriyasini tanlash holati
-WAITING_BROADCAST_POST = 200  # Reklama tarqatish suhbati uchun alohida holat
-WAITING_BROADCAST_LINK = 201  # Reklama uchun link-tugma URL'ini so'rash holati
-WAITING_BROADCAST_LINK_NAME = 202  # Reklama uchun link-tugma nomini so'rash holati
-WAITING_BROADCAST_CONFIRM = 203  # Reklamani yakuniy tasdiqlash holati
-WAITING_VIP_USER, WAITING_VIP_DAYS = 300, 301  # VIP berish suhbati uchun alohida holatlar
-WAITING_ADSEXCL_USER = 210  # Reklama yuborilmaydiganlar ro'yxatiga qo'shish holati
-WAITING_ADSALWAYS_ITEM = 211  # "Doim yuboriladi" ro'yxatiga qo'shish holati
-WAITING_VIP_ADJUST_DAYS = 302  # VIP muddatini uzaytirish/qisqartirish uchun alohida holat
-WAITING_DB_GROUP = 400  # Baza guruhini sozlash suhbati uchun alohida holat
-WAITING_VIP_CHANNEL = 500  # VIP kanalni sozlash suhbati uchun alohida holat
-WAITING_AUTOACCEPT_CHANNEL = 550  # "Avto qo'shish" kanalini sozlash suhbati uchun alohida holat
-WAITING_VIP_SPECIAL_POST = 600  # VIP1/VIP2 postini sozlash suhbati uchun alohida holat
-WAITING_DB_UPLOAD = 700  # Bazani qo'lda .db fayl orqali yuklash holati
-WAITING_DB_UPLOAD_CONFIRM = 701  # Yuklangan bazani tasdiqlash holati
+WAITING_EDIT_VALUE = 100
+WAITING_EDIT_LINK_URL = 101
+WAITING_EDIT_LINK_NAME = 102
+WAITING_BROADCAST_AUDIENCE = 199
+WAITING_BROADCAST_POST = 200
+WAITING_BROADCAST_LINK = 201
+WAITING_BROADCAST_LINK_NAME = 202
+WAITING_BROADCAST_CONFIRM = 203
+WAITING_VIP_USER, WAITING_VIP_DAYS = 300, 301
+WAITING_ADSEXCL_USER = 210
+WAITING_ADSALWAYS_ITEM = 211
+WAITING_VIP_ADJUST_DAYS = 302
+WAITING_DB_GROUP = 400
+WAITING_VIP_CHANNEL = 500
+WAITING_AUTOACCEPT_CHANNEL = 550
+WAITING_VIP_SPECIAL_POST = 600
+WAITING_DB_UPLOAD = 700
+WAITING_DB_UPLOAD_CONFIRM = 701
 
 
 def admin_menu_markup():
@@ -1812,12 +1538,6 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Admin uchun yordamchi buyruq: joriy chat (yoki guruh)ning ID raqamini
-    ko'rsatadi. Bu ID 'saqlash guruhi' sifatida STORAGE_CHAT_ID sozlamasiga
-    yozish uchun kerak. Guruhda ishlatish uchun botni o'sha guruhga admin
-    qilib qo'shib, guruh ichida /chatid yozing.
-    """
     user_id = update.effective_user.id
     if not is_admin(user_id):
         return
@@ -1867,7 +1587,6 @@ USERS_PER_PAGE = 20
 
 
 async def render_users_page(query, page: int):
-    """Foydalanuvchilar ro'yxatini sahifalab (har sahifada 20 tadan) ko'rsatadi."""
     rows, total = get_users_page(page, USERS_PER_PAGE)
     total_pages = max(1, (total + USERS_PER_PAGE - 1) // USERS_PER_PAGE)
     page = max(0, min(page, total_pages - 1))
@@ -1917,7 +1636,6 @@ async def adm_users_page_callback(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def render_edit_list(query):
-    """Tahrirlash uchun postlar ro'yxatini (post_id, nom, kategoriya) inline tugmalar sifatida chizadi."""
     posts = get_all_posts()
     if not posts:
         keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")], home_button_row()]
@@ -2017,7 +1735,6 @@ async def adm_delpost_do_callback(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def adm_editvis_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "👁 Ko'rinish huquqini tahrirlash" tugmasini bosganda - 3 ta variantni ko'rsatadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2038,13 +1755,12 @@ async def adm_editvis_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def adm_setvis_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin ko'rinish huquqi variantlaridan birini tanlaganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
         return
 
-    parts = query.data.split(":")  # "adm:setvis:vip:5"
+    parts = query.data.split(":")
     visibility = parts[2]
     post_id = int(parts[3])
     if visibility not in (VISIBILITY_ALL, VISIBILITY_VIP, VISIBILITY_ADMIN):
@@ -2060,14 +1776,12 @@ async def adm_setvis_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def edit_field_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "Kodlarni tahrirlash", "Tugma nomini tahrirlash" yoki "Link
-    tugmani tahrirlash" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
-    parts = query.data.split(":")  # "adm:editcodes:5" / "adm:editname:5" / "adm:editlink:5"
+    parts = query.data.split(":")
     field_key = parts[1]
     post_id = int(parts[2])
 
@@ -2092,7 +1806,6 @@ async def edit_field_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return WAITING_EDIT_LINK_URL
 
-    # "editname"
     context.user_data["edit_field"] = "name"
     await query.edit_message_text(
         "✏️ Ushbu post uchun YANGI tugma nomini yozing:\n\n"
@@ -2121,7 +1834,7 @@ async def edit_receive_value(update: Update, context: ContextTypes.DEFAULT_TYPE)
             return WAITING_EDIT_VALUE
         replace_codes_for_post(post_id, codes)
         await update.message.reply_text(f"✅ Kodlar yangilandi: {', '.join(codes)}")
-    else:  # "name"
+    else:
         if not text:
             await update.message.reply_text(
                 "❌ Tugma nomi bo'sh bo'lishi mumkin emas. Qaytadan yozing, "
@@ -2197,7 +1910,7 @@ async def edit_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ============ REKLAMA TARQATISH (/admin -> 📢 Reklama tarqatish) ============
+# ============ REKLAMA TARQATISH ============
 
 AUDIENCE_LABELS = {
     "regular": "oddiy foydalanuvchilar",
@@ -2207,7 +1920,6 @@ AUDIENCE_LABELS = {
 
 
 async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "📢 Reklama tarqatish" tugmasini bosganda ishga tushadi - avval auditoriya so'raladi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2228,13 +1940,12 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def broadcast_choose_audience(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin auditoriya tugmalaridan birini tanlaganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
-    audience = query.data.split(":")[2]  # "adm:bcast:regular" -> "regular"
+    audience = query.data.split(":")[2]
     context.user_data["broadcast_audience"] = audience
 
     user_ids = get_broadcast_recipients(audience)
@@ -2250,8 +1961,6 @@ async def broadcast_choose_audience(update: Update, context: ContextTypes.DEFAUL
 
 
 async def broadcast_receive_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin reklama postini yuborganda - postni vaqtincha saqlab, link-tugma
-    haqida so'raydi (xuddi oddiy post qo'shishdagi kabi)."""
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
@@ -2319,7 +2028,6 @@ async def broadcast_receive_link_name(update: Update, context: ContextTypes.DEFA
 
 
 def _broadcast_link_markup(pending: dict):
-    """pending ma'lumotidan link-tugma uchun InlineKeyboardMarkup quradi (agar bo'lsa)."""
     if pending.get("extra_button_url"):
         return InlineKeyboardMarkup(
             [[InlineKeyboardButton(text=pending["extra_button_text"], url=pending["extra_button_url"])]]
@@ -2328,8 +2036,6 @@ def _broadcast_link_markup(pending: dict):
 
 
 async def _show_broadcast_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Reklamaning aynan qanday ko'rinishda yuborilishini (tugma bilan yoki
-    tugmasiz) admin uchun oldindan ko'rsatadi va yakuniy tasdiqlashni so'raydi."""
     pending = context.user_data.get("broadcast_post")
     audience = context.user_data.get("broadcast_audience", "all")
     user_ids = get_broadcast_recipients(audience)
@@ -2338,7 +2044,6 @@ async def _show_broadcast_preview(update: Update, context: ContextTypes.DEFAULT_
 
     markup = _broadcast_link_markup(pending)
 
-    # Postning aynan qanday ko'rinishini (link-tugma bilan) oldindan ko'rsatamiz
     try:
         await context.bot.copy_message(
             chat_id=chat_id,
@@ -2367,7 +2072,6 @@ async def _show_broadcast_preview(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def broadcast_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "✅ Ha, yuborish" tugmasini bosganda - haqiqiy tarqatishni boshlaydi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2405,15 +2109,10 @@ async def broadcast_confirm_callback(update: Update, context: ContextTypes.DEFAU
             )
             success += 1
         except Exception:
-            # Foydalanuvchi botni bloklagan, akkaunt o'chirilgan va h.k. -
-            # bunday xatolar oddiy holat, jarayonni to'xtatmaymiz.
             failed += 1
 
-        # Telegram'ning yuborish tezligi cheklovlariga tegib ketmaslik uchun
-        # kichik pauza qo'shamiz (soniyasiga ~20 xabar).
         await asyncio.sleep(0.05)
 
-        # Har 20 ta yuborishda holatni yangilab turamiz
         if i % 20 == 0:
             try:
                 await query.edit_message_text(f"📢 Yuborilmoqda... ({i}/{len(user_ids)})")
@@ -2429,7 +2128,6 @@ async def broadcast_confirm_callback(update: Update, context: ContextTypes.DEFAU
 
 
 async def broadcast_confirm_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin oxirgi tasdiqlashda "❌ Yo'q, bekor qilish" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     context.user_data.pop("broadcast_post", None)
@@ -2445,10 +2143,9 @@ async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ============ REKLAMA YUBORILMAYDIGANLAR RO'YXATI (/admin -> Reklama -> 🚫) ============
+# ============ REKLAMA YUBORILMAYDIGANLAR RO'YXATI ============
 
 async def render_adsexcl_list(query):
-    """Reklama yuborilmaydiganlar ro'yxatini (➕ Yangi qo'shish tugmasi bilan birga) chizadi."""
     excluded = get_excluded_ads_users()
     keyboard = [[InlineKeyboardButton("➕ Yangi qo'shish", callback_data="adm:adsexclnew")]]
     for chat_id, username in excluded:
@@ -2466,7 +2163,6 @@ async def render_adsexcl_list(query):
 
 
 async def adm_adsexcl_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """"🚫 Reklama yuborilmaydiganlar" tugmasi bosilganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2476,7 +2172,6 @@ async def adm_adsexcl_list_callback(update: Update, context: ContextTypes.DEFAUL
 
 
 async def adm_adsexcl_user_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Ro'yxatdagi bitta foydalanuvchi tugmasi bosilganda - tafsilot va o'chirish tugmasini ko'rsatadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2499,7 +2194,6 @@ async def adm_adsexcl_user_detail_callback(update: Update, context: ContextTypes
 
 
 async def adm_adsexcl_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """"🗑 Ro'yxatdan olib tashlash" tugmasi bosilganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2511,7 +2205,6 @@ async def adm_adsexcl_remove_callback(update: Update, context: ContextTypes.DEFA
 
 
 async def adsexcl_new_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """"➕ Yangi qo'shish" tugmasi bosilganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2560,18 +2253,13 @@ async def adsexcl_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ============ "DOIM YUBORILADI" RO'YXATI (/admin -> Reklama -> ✅) ============
-# "Reklama yuborilmaydiganlar"ning aksi - bu yerga qo'shilgan foydalanuvchi
-# YOKI KANAL, auditoriya (oddiy/VIP/hammaga) va "yuborilmaydiganlar"
-# ro'yxatidan qat'i nazar, HAR DOIM reklamani oladi. Kanal qo'shish uchun
-# bot o'sha kanalda ADMIN bo'lishi shart.
+# ============ "DOIM YUBORILADI" RO'YXATI ============
 
 def _adsalways_icon(kind: str) -> str:
     return "📺" if kind == "channel" else "✅"
 
 
 async def render_adsalways_list(query):
-    """'Doim yuboriladi' ro'yxatini (➕ Yangi qo'shish tugmasi bilan birga) chizadi."""
     items = get_always_send_list()
     keyboard = [[InlineKeyboardButton("➕ Yangi qo'shish", callback_data="adm:adsalwaysnew")]]
     for chat_id, label, kind in items:
@@ -2592,7 +2280,6 @@ async def render_adsalways_list(query):
 
 
 async def adm_adsalways_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """"✅ Doim yuboriladi" tugmasi bosilganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2602,14 +2289,12 @@ async def adm_adsalways_list_callback(update: Update, context: ContextTypes.DEFA
 
 
 async def adm_adsalways_item_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Ro'yxatdagi bitta yozuv tugmasi bosilganda - tafsilot va o'chirish tugmasini ko'rsatadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
         return
 
     target_chat_id = int(query.data.split(":")[2])
-
     items = dict((cid, (label, kind)) for cid, label, kind in get_always_send_list())
     label, kind = items.get(target_chat_id, (str(target_chat_id), "user"))
     icon = _adsalways_icon(kind)
@@ -2629,7 +2314,6 @@ async def adm_adsalways_item_detail_callback(update: Update, context: ContextTyp
 
 
 async def adm_adsalways_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """"🗑 Ro'yxatdan olib tashlash" tugmasi bosilganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2641,7 +2325,6 @@ async def adm_adsalways_remove_callback(update: Update, context: ContextTypes.DE
 
 
 async def adsalways_new_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """"➕ Yangi qo'shish" tugmasi bosilganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2663,7 +2346,6 @@ async def adsalways_new_receive(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id, label, kind = await resolve_broadcast_target(context, update.message)
 
     if chat_id is None:
-        # 'label' bu holatda xato matni
         await update.message.reply_text(
             f"{label}\n\nQaytadan urinib ko'ring, yoki /cancel bilan bekor qiling."
         )
@@ -2693,8 +2375,9 @@ async def adsalways_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+# ============ VIP MENYU VA BOSHQARUV ============
+
 async def render_vip_menu(query):
-    """VIP foydalanuvchilar ro'yxatini (tepada 'Yangi VIP' tugmasi bilan) chizadi."""
     vip_users = get_vip_users()
 
     keyboard = [[InlineKeyboardButton("🆕 Yangi VIP", callback_data="adm:vipnew")]]
@@ -2712,7 +2395,6 @@ async def render_vip_menu(query):
 
 
 async def adm_vip_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin panelda "⭐ VIP status berish" tugmasi bosilganda - VIP ro'yxatini ko'rsatadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2721,7 +2403,6 @@ async def adm_vip_menu_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def render_vipuser_detail(query, target_chat_id: int):
-    """Bitta VIP foydalanuvchi haqida ma'lumot va boshqaruv tugmalarini chizadi."""
     username = get_username(target_chat_id)
     vip_until = get_vip_until(target_chat_id)
     label = f"@{username}" if username else str(target_chat_id)
@@ -2740,7 +2421,6 @@ async def render_vipuser_detail(query, target_chat_id: int):
 
 
 async def adm_vipuser_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Ro'yxatdan biror VIP foydalanuvchi tanlanganda - uning ma'lumoti va boshqaruv tugmalari."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2751,8 +2431,6 @@ async def adm_vipuser_detail_callback(update: Update, context: ContextTypes.DEFA
 
 
 async def vipadjust_back_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """VIP muddatini uzaytirish/qisqartirish kutilayotgan holatda "🔙 Orqaga" bosilganda
-    suhbatni bekor qilib, o'sha foydalanuvchi detali sahifasiga qaytaradi."""
     query = update.callback_query
     await query.answer()
     context.user_data.pop("vip_adjust_action", None)
@@ -2764,7 +2442,6 @@ async def vipadjust_back_to_user(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def adm_vipcancel_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """VIP ni bekor qilishdan oldin tasdiqlash so'raydi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2783,8 +2460,6 @@ async def adm_vipcancel_confirm_callback(update: Update, context: ContextTypes.D
 
 
 async def adm_vipcancel_do_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """VIP ni haqiqatan bekor qiladi (darhol kanaldan chiqarish va VIP2
-    xabarini yuborish bilan birga) va ro'yxatga qaytaradi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2797,7 +2472,6 @@ async def adm_vipcancel_do_callback(update: Update, context: ContextTypes.DEFAUL
 
 
 async def vip_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin VIP ro'yxatidagi "🆕 Yangi VIP" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -2859,7 +2533,6 @@ async def vip_receive_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Tugash sanasi: {vip_until}"
     )
 
-    # Yangi VIP foydalanuvchiga o'z tarifi haqida xabar va VIP1 kodli postni yuboramiz
     try:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -2887,13 +2560,12 @@ async def vip_receive_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def vipadjust_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "➕ Muddatni uzaytirish" yoki "➖ Muddatni qisqartirish" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
-    parts = query.data.split(":")  # "adm:vipextend:123" yoki "adm:vipreduce:123"
+    parts = query.data.split(":")
     action = "extend" if parts[1] == "vipextend" else "reduce"
     target_chat_id = int(parts[2])
 
@@ -2947,8 +2619,6 @@ async def vipadjust_receive_days(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def vip_back_to_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """VIP suhbati davomida (matn kiritish kutilayotganda) "🔙 Orqaga" bosilganda
-    suhbatni bekor qilib, VIP ro'yxatiga qaytaradi."""
     query = update.callback_query
     await query.answer()
     context.user_data.pop("vip_target_chat_id", None)
@@ -2966,10 +2636,9 @@ async def vip_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ============ BAZA GURUHINI SOZLASH (/admin -> 🗄 Baza guruhi) ============
+# ============ BAZA GURUHINI SOZLASH ============
 
 async def db_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "🗄 Baza guruhi" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -3000,7 +2669,6 @@ async def db_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     candidate = None
 
-    # 1) Guruhdan forward qilingan xabar bo'lsa - undan chat_id ni olamiz
     origin = getattr(message, "forward_origin", None)
     if origin is not None and getattr(origin, "chat", None) is not None:
         candidate = origin.chat.id
@@ -3009,7 +2677,6 @@ async def db_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if fwd_chat is not None:
             candidate = fwd_chat.id
 
-    # 2) Aks holda matn sifatida - havola, @username yoki ID bo'lishi mumkin
     if candidate is None:
         text = (message.text or "").strip()
 
@@ -3035,7 +2702,6 @@ async def db_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return WAITING_DB_GROUP
 
-    # Bot haqiqatan ham shu chatga kira olishini tekshiramiz
     try:
         chat = await context.bot.get_chat(candidate)
     except Exception:
@@ -3046,14 +2712,9 @@ async def db_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return WAITING_DB_GROUP
 
-    # Bot shu guruhda ADMIN ekanligini tekshiramiz (xabar nusxalab yubora olishi uchun shart)
     try:
         member = await context.bot.get_chat_member(chat.id, context.bot.id)
         is_group_admin = member.status in ("administrator", "creator")
-        # "Pin messages" huquqi alohida tekshiriladi - bazani zaxiralash/tiklash
-        # tizimi FAQAT shu huquq orqali ishlaydi (Bot API'da guruh tarixini
-        # "qidirish" imkoni umuman yo'q - faqat PIN qilingan xabarni topish
-        # mumkin, shuning uchun bu huquq juda muhim).
         can_pin = getattr(member, "can_pin_messages", False) or member.status == "creator"
     except Exception:
         is_group_admin = False
@@ -3105,10 +2766,9 @@ async def db_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ============ VIP KANALNI SOZLASH (/admin -> 📺 VIP kanal) ============
+# ============ VIP KANALNI SOZLASH ============
 
 async def vipchannel_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "📺 VIP kanal" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -3212,30 +2872,85 @@ async def vipchannel_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ============ "AVTO QO'SHISH" KANALINI SOZLASH (/admin -> 🤖 Avto qo'shish) ============
-# VIP kanaldan farqi: bu yerda HAR QANDAY foydalanuvchining qo'shilish
-# so'rovi (VIP statusidan qat'i nazar) avtomatik tasdiqlanadi, va hech kim
-# keyinchalik avtomatik chiqarib yuborilmaydi (muddat tekshiruvi yo'q).
+# ============ "AVTO QO'SHISH" KANALLARINI SOZLASH ============
 
-async def autoaccept_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "🤖 Avto qo'shish" tugmasini bosganda ishga tushadi."""
+async def render_autoaccept_list(query):
+    """'Avto qo'shish' kanallari ro'yxatini inline tugmalar sifatida chizadi."""
+    channels = get_auto_accept_channels_list()
+    keyboard = [[InlineKeyboardButton("➕ Yangi kanal qo'shish", callback_data="adm:autoacceptnew")]]
+    for chat_id, title in channels:
+        keyboard.append([InlineKeyboardButton(f"📺 {title}", callback_data=f"adm:autoacceptitem:{chat_id}")])
+    keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")])
+    keyboard.append(home_button_row())
+
+    text = (
+        "🤖 'Avto qo'shish' kanallari ro'yxati:\n\n"
+        "Quyidagi kanallarga yuborilgan HAR QANDAY qo'shilish so'rovi "
+        "(VIP yoki oddiy foydalanuvchidan qat'i nazar) avtomatik tasdiqlanadi.\n\n"
+        "Kanalni o'chirish uchun uning tugmasini bosing."
+        if channels
+        else "🤖 Hozircha 'Avto qo'shish' kanallari yo'q.\n\n"
+        "Bu bo'limga kanallar qo'shsangiz, ularga yuborilgan har qanday qo'shilish "
+        "so'rovlari avtomatik tasdiqlanadi."
+    )
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def adm_autoaccept_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(update.effective_user.id):
+        return
+    await render_autoaccept_list(query)
+
+
+async def adm_autoaccept_item_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(update.effective_user.id):
+        return
+
+    target_chat_id = int(query.data.split(":")[2])
+    channels = dict(get_auto_accept_channels_list())
+    title = channels.get(target_chat_id, str(target_chat_id))
+
+    keyboard = [
+        [InlineKeyboardButton("🗑 Kanalni o'chirish", callback_data=f"adm:autoacceptremove:{target_chat_id}")],
+        [InlineKeyboardButton("🔙 Orqaga", callback_data="adm:setautoaccept")],
+        home_button_row(),
+    ]
+    await query.edit_message_text(
+        f"📺 Kanal: {title}\n🆔 ID: `{target_chat_id}`\n\n"
+        "Bu kanalga yuborilgan har qanday qo'shilish so'rovi avtomatik tasdiqlanadi.",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
+    )
+
+
+async def adm_autoaccept_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(update.effective_user.id):
+        return
+
+    target_chat_id = int(query.data.split(":")[2])
+    remove_auto_accept_channel(target_chat_id)
+    await render_autoaccept_list(query)
+
+
+async def autoaccept_new_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
-    current = get_auto_accept_channel_id()
-    current_text = (
-        f"\n\nHozirgi 'Avto qo'shish' kanal ID: `{current}`" if current
-        else "\n\nHozircha 'Avto qo'shish' kanali sozlanmagan."
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:setautoaccept")], home_button_row()]
     )
-
     await query.edit_message_text(
-        "🤖 'Avto qo'shish' kanalini sozlash\n\n"
+        "🤖 Yangi 'Avto qo'shish' kanalini qo'shish\n\n"
         "Bu kanalga yuborilgan HAR QANDAY qo'shilish so'rovi (VIP yoki "
-        "oddiy foydalanuvchidan qat'i nazar) avtomatik tasdiqlanadi. "
-        "VIP kanaldan farqli o'laroq, bu yerdan hech kim keyinchalik "
-        "avtomatik chiqarib yuborilmaydi.\n\n"
+        "oddiy foydalanuvchidan qat'i nazar) avtomatik tasdiqlanadi.\n\n"
         "1️⃣ Avval KANAL yarating va uning sozlamalarida \"Qo'shilish "
         "so'rovlarini tasdiqlash\" (Join Requests) yoqilganligiga ishonch "
         "hosil qiling.\n"
@@ -3243,9 +2958,10 @@ async def autoaccept_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "qo'shish\" huquqi bilan).\n\n"
         "3️⃣ Keyin shu yerga quyidagilardan BIRINI yuboring:\n"
         "   • kanalning ochiq havolasi (masalan https://t.me/mychannel)\n"
-        "   • YOKI kanaldan istalgan xabarni shu yerga FORWARD qiling\n"
-        f"{current_text}\n\nBekor qilish uchun /cancel yozing.",
-        parse_mode="Markdown",
+        "   • kanalning @username'i yoki ID raqami\n"
+        "   • YOKI kanaldan istalgan xabarni shu yerga FORWARD qiling\n\n"
+        "Bekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
     )
     return WAITING_AUTOACCEPT_CHANNEL
 
@@ -3311,12 +3027,30 @@ async def autoaccept_receive(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return WAITING_AUTOACCEPT_CHANNEL
 
-    set_setting("auto_accept_channel_id", str(chat.id))
+    title = chat.title or str(chat.id)
+    add_auto_accept_channel(chat.id, title)
+
+    channels = get_auto_accept_channels_list()
+    keyboard = [[InlineKeyboardButton("➕ Yangi kanal qo'shish", callback_data="adm:autoacceptnew")]]
+    for cid, t in channels:
+        keyboard.append([InlineKeyboardButton(f"📺 {t}", callback_data=f"adm:autoacceptitem:{cid}")])
+    keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")])
+    keyboard.append(home_button_row())
+
     await message.reply_text(
-        f"✅ 'Avto qo'shish' kanali sozlandi!\nKanal: {chat.title or chat.id}\nID: {chat.id}\n\n"
+        f"✅ 'Avto qo'shish' kanali qo'shildi!\nKanal: {title}\nID: `{chat.id}`\n\n"
         "Endi bu kanalga yuborilgan HAR QANDAY qo'shilish so'rovi (VIP yoki oddiy "
-        "foydalanuvchidan qat'i nazar) avtomatik tasdiqlanadi."
+        "foydalanuvchidan qat'i nazar) avtomatik tasdiqlanadi.",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
     )
+    return ConversationHandler.END
+
+
+async def autoaccept_back_to_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await render_autoaccept_list(query)
     return ConversationHandler.END
 
 
@@ -3326,7 +3060,6 @@ async def autoaccept_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============ VIP1 / VIP2 MAXSUS POSTLARINI SOZLASH ============
-# (/admin -> 🎁 VIP boshlanish posti / ⏰ VIP tugash posti)
 
 VIP_SPECIAL_LABELS = {
     VIP_WELCOME_CODE: "🎁 VIP boshlanish posti (VIP status berilganda avtomatik yuboriladi)",
@@ -3335,7 +3068,6 @@ VIP_SPECIAL_LABELS = {
 
 
 async def vipspecial_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "VIP boshlanish posti" yoki "VIP tugash posti" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -3365,7 +3097,6 @@ async def vipspecial_receive(update: Update, context: ContextTypes.DEFAULT_TYPE)
     message = update.message
     preview = make_preview(message)
 
-    # Boshqa postlar kabi, agar "baza guruhi" sozlangan bo'lsa - shu yerga nusxalab saqlaymiz
     storage_chat_id = message.chat_id
     storage_message_id = message.message_id
     db_group_id = get_storage_chat_id()
@@ -3404,26 +3135,14 @@ async def vipspecial_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_chat_join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Har qanday kanal/guruhga qo'shilish so'rovi kelganda ishga tushadi.
-
-    1) Agar bu VIP kanal bo'lsa: VIP foydalanuvchi -> avtomatik tasdiqlanadi,
-       VIP bo'lmagan foydalanuvchi -> e'tiborsiz qoldiriladi (so'rov kutishda qoladi).
-    2) Agar bu "Avto qo'shish" kanali bo'lsa: HAR QANDAY foydalanuvchi
-       (VIP statusidan qat'i nazar) darhol avtomatik tasdiqlanadi - va
-       (VIP kanaldan farqli o'laroq) keyinchalik hech kim avtomatik
-       chiqarib yuborilmaydi.
-
-    Boshqa chatlardagi so'rovlarga (agar bo'lsa) tegilmaydi.
-    """
     request = update.chat_join_request
     chat_id = request.chat.id
     user_id = request.from_user.id
 
     vip_channel_id = get_vip_channel_id()
-    auto_accept_channel_id = get_auto_accept_channel_id()
 
-    if auto_accept_channel_id and chat_id == auto_accept_channel_id:
+    # Ro'yxatdagi istalgan "avto qo'shish" kanaliga so'rov kelgan bo'lsa darhol tasdiqlanadi
+    if is_auto_accept_channel(chat_id):
         try:
             await context.bot.approve_chat_join_request(chat_id=chat_id, user_id=user_id)
             save_user(user_id, request.from_user.username)
@@ -3440,28 +3159,16 @@ async def handle_chat_join_request(update: Update, context: ContextTypes.DEFAULT
             save_user(user_id, request.from_user.username)
         except Exception:
             logger.exception("VIP kanalga qo'shilish so'rovini tasdiqlashda xatolik: %s", user_id)
-    # VIP bo'lmasa - hech narsa qilmaymiz, so'rov kutishda (pending) qoladi.
 
 
 async def _process_single_vip_expiry(context: ContextTypes.DEFAULT_TYPE, uid: int):
-    """
-    Bitta foydalanuvchi uchun "VIP tugadi" holatini qayta ishlaydi:
-      1) Agar VIP kanal sozlangan bo'lsa - o'sha kanaldan avtomatik chiqarib
-         yuboradi (ban+unban - shunda kelajakda qaytadan qo'shilish so'rovi
-         yuborishlari mumkin bo'ladi)
-      2) VIP kanal sozlanган-sozlanmaganidan QAT'I NAZAR - foydalanuvchiga
-         xabar va VIP2 kodli postni yuboradi
-    Bu funksiya HAM avtomatik (job_queue) HAM qo'lda (admin "Bekor qilish"/
-    "Qisqartirish" tugmalari) VIP tugashi holatlarida ishlatiladi.
-    """
     vip_channel_id = get_vip_channel_id()
     if vip_channel_id:
         try:
             await context.bot.ban_chat_member(chat_id=vip_channel_id, user_id=uid)
             await context.bot.unban_chat_member(chat_id=vip_channel_id, user_id=uid, only_if_banned=True)
         except Exception:
-            # Foydalanuvchi kanalda umuman bo'lmagan bo'lishi mumkin - bu normal holat.
-            logger.info("VIP kanaldan chiqarishda kutilgan xatolik (ehtimol u yerda emas): %s", uid)
+            logger.info("VIP kanaldan chiqarishda kutilgan xatolik: %s", uid)
 
     try:
         await context.bot.send_message(
@@ -3472,12 +3179,10 @@ async def _process_single_vip_expiry(context: ContextTypes.DEFAULT_TYPE, uid: in
         vip2_sent = await send_post_for_code(VIP_EXPIRED_CODE, uid, context, allow_system=True)
         if vip2_sent in (None, VIP_REQUIRED):
             logger.info(
-                "VIP2 kodli post topilmadi/yuborilmadi (kod=%s, foydalanuvchi=%s) - "
-                "admin uni /admin panel orqali qo'shishi mumkin.",
+                "VIP2 kodli post topilmadi/yuborilmadi (kod=%s, foydalanuvchi=%s)",
                 VIP_EXPIRED_CODE, uid,
             )
     except Exception:
-        # Foydalanuvchi botni bloklagan bo'lishi mumkin - bu normal holat.
         logger.info("VIP tugashi haqida xabar yuborib bo'lmadi: %s", uid)
 
     conn = sqlite3.connect(DB_PATH)
@@ -3488,11 +3193,6 @@ async def _process_single_vip_expiry(context: ContextTypes.DEFAULT_TYPE, uid: in
 
 
 async def vip_expiry_job(context: ContextTypes.DEFAULT_TYPE):
-    """
-    Doimiy ravishda (job_queue orqali) ishga tushadigan vazifa: VIP muddati
-    o'tgan, lekin hali "qayta ishlanmagan" foydalanuvchilarni topib, har
-    birini _process_single_vip_expiry orqali qayta ishlaydi.
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -3512,7 +3212,7 @@ async def vip_expiry_job(context: ContextTypes.DEFAULT_TYPE):
         await _process_single_vip_expiry(context, uid)
 
 
-VIP_REQUIRED = "VIP_REQUIRED"  # send_post_for_code uchun maxsus qaytariladigan belgi
+VIP_REQUIRED = "VIP_REQUIRED"
 
 
 async def send_post_for_code(
@@ -3522,19 +3222,6 @@ async def send_post_for_code(
     reply_markup=None,
     allow_system: bool = False,
 ):
-    """Berilgan kodga mos postni topib, target_chat_id'ga yuboradi.
-    Muvaffaqiyatli bo'lsa yuborilgan xabar obyektini qaytaradi.
-    Agar kod topilmasa yoki yuborishda xatolik bo'lsa - None.
-    Agar bu O'YIN posti bo'lib, foydalanuvchida VIP status bo'lmasa - VIP_REQUIRED.
-
-    allow_system=True FAQAT botning o'z ICHKI avtomatik yuborishlarida
-    ishlatiladi (VIP berilganda VIP1, VIP tugaganda VIP2, "Mening statusim"da
-    VIP1 ko'rsatilganda) - bu holatda kategoriya/ko'rinish cheklovlari
-    butunlay chetlab o'tiladi. Oddiy foydalanuvchi kod yozganda yoki
-    ro'yxatdan tanlaganda BU HECH QACHON True bo'lmasligi kerak - aks holda
-    "system" (masalan VIP1/VIP2) postlari oshkor bo'lib qolishi mumkin.
-
-    Har bir urinish (topilgan yoki topilmagan) statistika uchun loglanadi."""
     row = get_post_by_code(code)
     log_search(target_chat_id, code, found=(row is not None))
 
@@ -3545,22 +3232,14 @@ async def send_post_for_code(
 
     if not allow_system:
         if category == CATEGORY_SYSTEM:
-            # Yashirin tizim posti (masalan VIP1/VIP2) - oddiy kod qidiruvida
-            # yoki ro'yxatda HECH QACHON ko'rinmaydi, "topilmadi" bilan bir xil.
             return None
         if category == CATEGORY_GAME and not is_vip(target_chat_id):
             return VIP_REQUIRED
         if visibility == VISIBILITY_VIP and not is_vip(target_chat_id):
             return VIP_REQUIRED
         if visibility == VISIBILITY_ADMIN and not is_admin(target_chat_id):
-            # Admin uchun mo'ljallangan post - boshqalarga "umuman mavjud emas"
-            # sifatida ko'rsatiladi (yashirin post).
             return None
 
-    # Agar post uchun link-tugma belgilangan bo'lsa, uni ishlatamiz (bitta
-    # xabarga faqat bitta reply_markup biriktirish mumkin, shuning uchun bu
-    # holatda pastdagi doimiy klaviatura o'rniga shu tugma ko'rsatiladi -
-    # doimiy klaviatura keyingi javoblarda qayta chiqadi).
     final_markup = reply_markup
     if extra_button_url:
         final_markup = InlineKeyboardMarkup(
@@ -3581,7 +3260,6 @@ async def send_post_for_code(
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Foydalanuvchi kod yuborganda (yoki pastdagi tugmani bosganda) ishlaydi."""
     text = (update.message.text or "").strip()
 
     if text.startswith("/"):
@@ -3589,14 +3267,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     save_user(update.effective_chat.id, update.effective_user.username)
-    keyboard = main_menu_markup()  # pastdagi tugmalar ADMIN uchun ham doim ko'rinadi
+    keyboard = main_menu_markup()
 
-    # Agar pastdagi menyu tugmalaridan biri bosilsa - avval ochiq turgan
-    # "Barcha postlar"/"O'yinlar" ro'yxati VA undan tanlab ochilgan (oxirgi)
-    # post (agar bo'lsa) birga o'chiriladi. Shuningdek, foydalanuvchining
-    # ANIQ SHU BOSGAN tugma matni (masalan "🎬 Barcha postlar" degan
-    # xabarning o'zi) ham darhol o'chiriladi - u boshqa hech qanday tizim
-    # orqali kuzatilmagani uchun aks holda chatda abadiy qolib ketardi.
     if text in (BTN_KINOLAR, BTN_VIP, BTN_GAMES, BTN_STATUS):
         list_id = context.chat_data.pop("open_list_message_id", None)
         last_post_id = context.chat_data.pop("open_list_last_post_id", None)
@@ -3612,7 +3284,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    # Pastdagi doimiy tugmalar
     if text == BTN_KINOLAR:
         await list_movies(update, context)
         return
@@ -3640,7 +3311,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await track_and_trim(update, context, sent)
         return
 
-    # Oddiy kod sifatida qidiramiz
     sent = await send_post_for_code(
         text, update.effective_chat.id, context, reply_markup=keyboard
     )
@@ -3660,9 +3330,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_list_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/list dagi inline tugma bosilganda ishlaydi."""
     query = update.callback_query
-    await query.answer()  # tugmadagi "yuklanmoqda" holatini olib tashlaydi
+    await query.answer()
 
     if not query.data or not query.data.startswith("code:"):
         return
@@ -3670,7 +3339,7 @@ async def handle_list_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     user_id = update.effective_user.id
     save_user(query.message.chat_id, update.effective_user.username)
-    reply_markup = main_menu_markup()  # pastdagi tugmalar ADMIN uchun ham doim ko'rinadi
+    reply_markup = main_menu_markup()
 
     sent = await send_post_for_code(
         code, query.message.chat_id, context, reply_markup=reply_markup
@@ -3687,12 +3356,6 @@ async def handle_list_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
             reply_markup=reply_markup,
         )
 
-    # Agar bu tugma "Barcha postlar"/"O'yinlar" ochiq ro'yxatidan bosilgan
-    # bo'lsa: avval SHU SESSIYADA oldin ochilgan post bo'lsa - uni o'chiramiz
-    # (faqat oxirgi tanlangan post ko'rinishda qolishi uchun), keyin yangi
-    # postni sessiyaga "oxirgi ochilgan" sifatida yozib qo'yamiz. Bunday
-    # holatda oddiy 2-xabar trim tizimi ishlatilmaydi (sessiya alohida
-    # boshqaradi, X yoki pastki menyu bosilguncha saqlanadi).
     if context.chat_data.get("open_list_message_id") == query.message.message_id:
         previous_post_id = context.chat_data.get("open_list_last_post_id")
         if previous_post_id is not None:
@@ -3708,15 +3371,6 @@ async def handle_list_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def handle_pinned_service_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Telegram'da biror xabar PIN qilinganda, u avtomatik ravishda
-    "[Bot] xabarni pin qildi" degan ALOHIDA TIZIM XABARINI yaratadi - bu
-    bizning bazani soatlik zaxiralash jarayonimizning yon ta'siri (chunki
-    har safar yangi zaxira pin qilinadi). Bu bildirishnomalar vaqt o'tishi
-    bilan to'planib, guruhni keraksiz xabarlar bilan to'ldirib yuborishi
-    mumkin - shuning uchun ularni PAYDO BO'LISHI BILANOQ avtomatik
-    o'chiramiz.
-    """
     message = update.message
     if message is None or message.pinned_message is None:
         return
@@ -3731,11 +3385,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 
 class _HealthCheckHandler(http.server.BaseHTTPRequestHandler):
-    """Render (yoki shunga o'xshash platformalar) 'portni tinglayapsizmi'
-    tekshiruvini qanoatlantirish uchun har qanday so'rovga 200 OK bilan
-    javob beradi. Botning asosiy ishiga (Telegram bilan gaplashish) hech
-    qanday aloqasi yo'q - faqat platforma buni talab qilgani uchun kerak."""
-
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -3747,14 +3396,10 @@ class _HealthCheckHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, format, *args):
-        pass  # standart HTTP loglarini o'chirib qo'yamiz (keraksiz shovqin)
+        pass
 
 
 def start_health_check_server():
-    """PORT muhit o'zgaruvchisi berilgan bo'lsa (Render kabi platformalarda
-    avtomatik beriladi), fon rejimida (alohida thread'da) mayda HTTP server
-    ishga tushiradi. Agar PORT berilmagan bo'lsa (masalan kompyuterda sinab
-    ko'rayotganda), umuman hech narsa qilmaydi."""
     port_raw = os.environ.get("PORT")
     if not port_raw:
         return
@@ -3777,22 +3422,10 @@ def start_health_check_server():
 
 
 def _get_backup_chat_id():
-    """
-    Zaxira nusxa qayerga yuborilishi/qidirilishi kerakligini aniqlaydi.
-
-    Avval BAZADA saqlangan qiymat tekshiriladi (`get_storage_chat_id()`),
-    chunki bu ENG YANGI va TO'G'RI manba - masalan guruh supergroup'ga
-    aylanib, ID o'zgarganda, bot buni avtomatik yangilab qo'yadi (pastdagi
-    ChatMigrated ishlov beruvchisiga qarang). Bazada hech narsa topilmasa
-    (masalan fayl tizimi tozalanganda) - kod/muhit o'zgaruvchisidagi
-    STORAGE_CHAT_ID standart qiymatiga qaytadi (bu fayl tizimidan mustaqil,
-    shuning uchun "boshlang'ich nuqta" sifatida ishlatiladi).
-    """
     return get_storage_chat_id() or (ADMIN_IDS[0] if ADMIN_IDS else None)
 
 
 def _count_posts_in_db() -> int:
-    """Mahalliy bazadagi postlar sonini hisoblaydi (xavfsizlik tekshiruvi uchun)."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
@@ -3805,26 +3438,6 @@ def _count_posts_in_db() -> int:
 
 
 async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
-    """
-    movies.db faylini (SQLite bazaning o'zini) hujjat sifatida saqlash
-    guruhiga (yoki admin chatiga) yuklaydi va PIN qiladi. Bu Render kabi
-    platformalarda (bepul rejada doimiy fayl xotirasi bo'lmagani uchun)
-    bot qayta deploy qilinganda ma'lumotlar YO'QOLIB ketmasligi uchun
-    zarur - bot ishga tushganda shu pin qilingan nusxadan tiklanadi.
-
-    Guruh eski zaxira fayllari bilan TO'LIB KETMASLIGI uchun, yangi zaxira
-    muvaffaqiyatli yuklab bo'lingandan KEYIN, undan OLDINGI (eski) zaxira
-    xabari avtomatik o'chiriladi - shunda guruhda doim faqat BITTA (eng
-    so'nggi) zaxira fayli saqlanadi.
-
-    ⚠️ XAVFSIZLIK TEKSHIRUVI: agar mahalliy baza BO'SH (0 ta post) bo'lsa-yu,
-    guruhda ALLAQACHON zaxira mavjud bo'lsa - bu zaxiralanmaydi va OLDINGI
-    zaxira O'CHIRILMAYDI.
-
-    Diagnostika uchun natija lug'atini qaytaradi: {"ok", "reason", "pinned",
-    "posts_count", "chat_id"} - bu /admin dagi "Hozir zaxiralash" tugmasi
-    orqali adminga to'liq holatni ko'rsatish uchun ishlatiladi.
-    """
     backup_chat_id = _get_backup_chat_id()
     if not backup_chat_id:
         logger.warning("Bazani zaxiralash uchun chat topilmadi (baza guruhi ham, admin ham sozlanmagan).")
@@ -3848,7 +3461,7 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
 
     sent = None
     last_error = None
-    attempts_left = 3  # 1-urinish + 2 qayta urinish (migratsiya + vaqtinchalik xatolar uchun yetarli)
+    attempts_left = 3
     attempt = 0
     while attempt < attempts_left:
         try:
@@ -3861,11 +3474,6 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
                 )
             break
         except ChatMigrated as e:
-            # Guruh oddiy guruhdan SUPERGROUP'ga aylantirilgan - Telegram
-            # yangi chat_id beradi. Buni AVTOMATIK saqlab qo'yamiz va
-            # DARHOL yangi ID bilan qayta urinamiz - admin hech narsa
-            # qilishiga hojat qolmaydi. Bu urinish oddiy qayta-urinish
-            # byudjetini "yemaydi" - shuning uchun attempts_left'ni oshiramiz.
             logger.warning(
                 "Guruh supergroup'ga aylantirilgan. Eski ID: %s -> Yangi ID: %s. "
                 "Sozlama avtomatik yangilanmoqda.", backup_chat_id, e.new_chat_id,
@@ -3873,8 +3481,8 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
             backup_chat_id = e.new_chat_id
             set_setting("storage_chat_id", str(backup_chat_id))
             last_error = e
-            if attempts_left < 5:  # xavfsizlik chegarasi - cheksiz oshib ketmasin
-                attempts_left += 1  # bu urinish migratsiyani aniqlash uchun ketdi, hisobga olmaymiz
+            if attempts_left < 5:
+                attempts_left += 1
         except Exception as e:
             last_error = e
             await asyncio.sleep(2)
@@ -3900,8 +3508,6 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
             "borligini tekshiring (aks holda tiklash ishlamaydi)."
         )
 
-    # Yangi zaxira muvaffaqiyatli yuklandi - endi shu haqidagi ma'lumotni
-    # saqlaymiz va, agar oldingi zaxira bo'lsa, uni guruhdan o'chiramiz.
     set_setting("last_backup_message_id", str(sent.message_id))
 
     if previous_backup_message_id:
@@ -3910,7 +3516,6 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
                 chat_id=backup_chat_id, message_id=int(previous_backup_message_id)
             )
         except Exception:
-            # Allaqachon o'chirilgan yoki topilmagan bo'lishi mumkin - muammo emas.
             pass
 
     return {
@@ -3920,14 +3525,6 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
 
 
 async def backup_database_job(context: ContextTypes.DEFAULT_TYPE):
-    """
-    `job_queue.run_repeating` orqali har 1 soatda chaqiriladigan wrapper.
-    `backup_database`ni chaqiradi, va agar zaxira YUKLANGAN, lekin PIN
-    qilinmagan bo'lsa (ya'ni tiklash ISHLAMAYDIGAN holatda qolsa) - adminga
-    darhol ogohlantirish xabari yuboradi. Spam bo'lmasligi uchun, xabar
-    faqat HOLAT O'ZGARGANDA (avval yaxshi edi, endi yomon bo'lib qoldi)
-    yuboriladi, har safar emas.
-    """
     result = await backup_database(context)
 
     pin_problem_now = result.get("ok") and not result.get("pinned")
@@ -3951,7 +3548,6 @@ async def backup_database_job(context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 logger.exception("Pin muammosi haqida adminga (%s) xabar yuborib bo'lmadi.", admin_id)
     elif not pin_problem_now and was_already_warned and result.get("ok"):
-        # Muammo tuzatilgan - keyingi safar yana muammo chiqsa, qayta ogohlantirish kerak
         set_setting("pin_problem_warned", "0")
 
 
@@ -3965,8 +3561,6 @@ _BACKUP_REASON_LABELS = {
 
 
 async def adm_backupnow_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "🔄 Hozir zaxiralash / tekshirish" tugmasini bosganda - darhol
-    zaxiralaydi va to'liq diagnostika natijasini ko'rsatadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -3991,12 +3585,6 @@ async def adm_backupnow_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def _restore_from_pinned_backup(bot) -> dict:
-    """
-    'Baza guruhi'da PIN qilingan eng so'nggi zaxira hujjatini qidirib,
-    topilsa DB_PATH'ga yuklab qo'yadi. Natija lug'atini qaytaradi -
-    bu ham avtomatik ishga tushish bosqichida (restore_database_if_needed),
-    ham admin "♻️ Zaxiradan hozir tiklash" tugmasi bosilganda ishlatiladi.
-    """
     backup_chat_id = _get_backup_chat_id()
     if not backup_chat_id:
         return {"ok": False, "reason": "no_chat", "posts_count": 0}
@@ -4012,27 +3600,19 @@ async def _restore_from_pinned_backup(bot) -> dict:
         logger.exception("Bazani zaxiradan tiklashda xatolik.")
         return {"ok": False, "reason": "download_failed", "posts_count": 0}
 
-    init_db()  # tiklangan fayl ustida jadvallarni yaratish/migratsiya qilish
+    init_db()
     posts_count = _count_posts_in_db()
     logger.info("✅ Baza muvaffaqiyatli zaxiradan tiklandi (%s), postlar: %s.", DB_PATH, posts_count)
     return {"ok": True, "reason": "success", "posts_count": posts_count}
 
 
 async def restore_database_if_needed(bot):
-    """
-    Bot ishga tushganda (post_init bosqichida) chaqiriladi. Agar mahalliy
-    'movies.db' fayli mavjud bo'lmasa yoki bo'sh bo'lsa (yangi/tozalangan
-    fayl tizimi belgisi), saqlash chatida PIN qilingan eng so'nggi zaxira
-    nusxani qidirib, topilsa - yuklab olib, o'rniga qo'yadi.
-    """
     if os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) > 0:
-        return  # mahalliy baza allaqachon bor - tiklashga hojat yo'q
+        return
     await _restore_from_pinned_backup(bot)
 
 
 async def adm_restorenow_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "♻️ Zaxiradan hozir tiklash" tugmasini bosganda - PIN qilingan
-    zaxiradan QO'LDA, darhol tiklashga urinadi (fayl bo'sh bo'lmasa ham)."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -4058,7 +3638,6 @@ async def adm_restorenow_callback(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def dbupload_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin "📥 DB faylni qo'lda yuklash" tugmasini bosganda ishga tushadi."""
     query = update.callback_query
     await query.answer()
     if not is_admin(update.effective_user.id):
@@ -4101,7 +3680,6 @@ async def dbupload_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return WAITING_DB_UPLOAD
 
-    # Validatsiya: bu haqiqatan ham SQLite baza va bizning jadvalimizga egami?
     posts_count = 0
     try:
         test_conn = sqlite3.connect(tmp_path)
@@ -4164,7 +3742,7 @@ async def dbupload_confirm_callback(update: Update, context: ContextTypes.DEFAUL
         await query.edit_message_text("❌ Faylni almashtirishda ichki xatolik yuz berdi.")
         return ConversationHandler.END
 
-    init_db()  # yangi fayl ustida jadvallarni yaratish/migratsiya qilish
+    init_db()
 
     await query.edit_message_text(
         f"✅ Baza muvaffaqiyatli almashtirildi!\nTopilgan postlar soni: {posts_count}\n\n"
@@ -4201,9 +3779,8 @@ async def dbupload_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _post_init(app):
-    """Bot pollingni boshlashdan OLDIN, bir marta ishga tushadigan bosqich."""
     await restore_database_if_needed(app.bot)
-    init_db()  # tiklangan (yoki yangi) fayl ustida jadvallarni yaratish/migratsiya qilish
+    init_db()
 
 
 def main():
@@ -4362,16 +3939,18 @@ def main():
 
     autoaccept_conversation = ConversationHandler(
         entry_points=[
-            CallbackQueryHandler(autoaccept_start, pattern=r"^adm:setautoaccept$"),
+            CallbackQueryHandler(autoaccept_new_start, pattern=r"^adm:autoacceptnew$"),
         ],
         states={
             WAITING_AUTOACCEPT_CHANNEL: [
                 MessageHandler(filters.ALL & ~filters.COMMAND, autoaccept_receive),
+                CallbackQueryHandler(autoaccept_back_to_list, pattern=r"^adm:setautoaccept$"),
             ],
         },
         fallbacks=[
             CommandHandler("cancel", autoaccept_cancel),
             CallbackQueryHandler(adm_backhome_callback, pattern=r"^adm:backhome$"),
+            CallbackQueryHandler(autoaccept_back_to_list, pattern=r"^adm:setautoaccept$"),
         ],
     )
 
@@ -4446,6 +4025,9 @@ def main():
     app.add_handler(CallbackQueryHandler(adm_adsalways_list_callback, pattern=r"^adm:adsalways$"))
     app.add_handler(CallbackQueryHandler(adm_adsalways_item_detail_callback, pattern=r"^adm:adsalwaysitem:-?\d+$"))
     app.add_handler(CallbackQueryHandler(adm_adsalways_remove_callback, pattern=r"^adm:adsalwaysremove:-?\d+$"))
+    app.add_handler(CallbackQueryHandler(adm_autoaccept_menu_callback, pattern=r"^adm:setautoaccept$"))
+    app.add_handler(CallbackQueryHandler(adm_autoaccept_item_detail_callback, pattern=r"^adm:autoacceptitem:-?\d+$"))
+    app.add_handler(CallbackQueryHandler(adm_autoaccept_remove_callback, pattern=r"^adm:autoacceptremove:-?\d+$"))
     app.add_handler(CallbackQueryHandler(adm_editlist_callback, pattern=r"^adm:editlist$"))
     app.add_handler(CallbackQueryHandler(adm_postdetail_callback, pattern=r"^adm:editpost:\d+$"))
     app.add_handler(CallbackQueryHandler(adm_editvis_menu, pattern=r"^adm:editvis:\d+$"))
@@ -4453,22 +4035,15 @@ def main():
     app.add_handler(CallbackQueryHandler(adm_delpost_confirm_callback, pattern=r"^adm:delpost:\d+$"))
     app.add_handler(CallbackQueryHandler(adm_delpost_do_callback, pattern=r"^adm:delconfirm:\d+$"))
 
-    # VIP kanalga qo'shilish so'rovlarini avtomatik boshqarish
     app.add_handler(ChatJoinRequestHandler(handle_chat_join_request))
 
     app.add_handler(MessageHandler(filters.StatusUpdate.PINNED_MESSAGE, handle_pinned_service_message))
     app.add_error_handler(error_handler)
 
-    # Foydalanuvchi matn (kod) yuborsa
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    # VIP muddati tugagan foydalanuvchilarni kanaldan avtomatik chiqarish -
-    # har soatda bir marta tekshiradi (birinchi tekshiruv 30 soniyadan keyin)
     if app.job_queue is not None:
         app.job_queue.run_repeating(vip_expiry_job, interval=3600, first=30)
-        # Bazani har 1 soatda avtomatik zaxiralab turadi (Render kabi
-        # platformalarda doimiy fayl xotirasi bo'lmagani uchun ZARUR -
-        # aks holda qayta deploy qilinganda barcha ma'lumot yo'qolib ketadi).
         app.job_queue.run_repeating(backup_database_job, interval=3600, first=60)
     else:
         logger.warning(
@@ -4483,3 +4058,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+```

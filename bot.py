@@ -1,4 +1,5 @@
 
+
 import asyncio
 import http.server
 import logging
@@ -26,7 +27,7 @@ from telegram.ext import (
 
 # ============ SOZLAMALAR ============
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8993809045:AAEDrdA1ZqqIl17LrC0rPvwWwv-NohkB4HY")
-ADMIN_IDS = [5393636771]                    # Sizning Telegram user ID(lar)ingiz
+ADMIN_IDS = [5393636771]
 DB_PATH = os.environ.get("DB_PATH", "movies.db")
 
 _storage_chat_id_raw = os.environ.get("STORAGE_CHAT_ID", "").strip()
@@ -127,7 +128,7 @@ def _migrate_posts_table_if_needed(cur):
 
 
 def _migrate_auto_accept_channels_if_needed(cur):
-    """Eski bitta kanal sozlamasi (auto_accept_channel_id) bo'lsa, yangi jadvalga ko'chiradi."""
+    """Eski bitta kanal (auto_accept_channel_id) saqlangan bo'lsa yangi jadvalga avtomatik ko'chiradi."""
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS auto_accept_channels (
@@ -281,7 +282,7 @@ def get_vip_channel_id():
     return None
 
 
-# ============ "AVTO QO'SHISH" BAZA FUNKSIYALARI ============
+# ============ "AVTO QO'SHISH" KANALLARI BAZA FUNKSIYALARI ============
 
 def get_auto_accept_channel_ids():
     conn = sqlite3.connect(DB_PATH)
@@ -328,11 +329,6 @@ def get_auto_accept_channels_list():
     rows = cur.fetchall()
     conn.close()
     return rows
-
-
-def get_auto_accept_channel_id():
-    ids = get_auto_accept_channel_ids()
-    return ids[0] if ids else None
 
 
 def save_post(
@@ -986,14 +982,9 @@ async def add_receive_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
             storage_message_id = stored.message_id
             copied_to_storage = True
         except Exception:
-            logger.exception(
-                "Postni saqlash guruhiga (chat_id=%s) nusxalab bo'lmadi - "
-                "asl xabar (admin chatidagi) ishlatiladi.",
-                db_group_id,
-            )
+            logger.exception("Postni saqlash guruhiga nusxalab bo'lmadi.")
             warn = await update.message.reply_text(
-                "⚠️ Diqqat: postni saqlash guruhiga nusxalab bo'lmadi (bot guruhda "
-                "admin emasmi yoki guruh o'chirilganmi - tekshiring). Post hozircha "
+                "⚠️ Diqqat: postni saqlash guruhiga nusxalab bo'lmadi. Post hozircha "
                 "faqat shu chatda saqlanadi."
             )
             flow_ids.append(warn.message_id)
@@ -1321,7 +1312,6 @@ def build_posts_page_markup(rows, page: int, category: str = CATEGORY_MOVIE):
 async def show_posts_list(update: Update, context: ContextTypes.DEFAULT_TYPE, category: str = CATEGORY_MOVIE):
     user_id = update.effective_user.id
     keyboard = main_menu_markup()
-
     chat_id = update.effective_chat.id
 
     if category == CATEGORY_GAME and not is_vip(user_id):
@@ -1931,6 +1921,8 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📢 Hammaga", callback_data="adm:bcast:all")],
         [InlineKeyboardButton("🚫 Reklama yuborilmaydiganlar", callback_data="adm:adsexcl")],
         [InlineKeyboardButton("✅ Doim yuboriladi", callback_data="adm:adsalways")],
+        [InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")],
+        home_button_row(),
     ]
     await query.edit_message_text(
         "📢 Reklamani kimlarga yubormoqchisiz?",
@@ -1951,11 +1943,18 @@ async def broadcast_choose_audience(update: Update, context: ContextTypes.DEFAUL
     user_ids = get_broadcast_recipients(audience)
     label = AUDIENCE_LABELS.get(audience, "foydalanuvchilar")
 
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔙 Orqaga", callback_data="adm:broadcast")],
+            home_button_row(),
+        ]
+    )
     await query.edit_message_text(
         "📢 Reklama uchun postni yuboring (video, rasm, hujjat yoki oddiy matn "
         "bo'lishi mumkin).\n\n"
         f"Bu post {label}ga ({len(user_ids)} ta) yuboriladi.\n\n"
-        "Bekor qilish uchun /cancel yozing."
+        "Bekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
     )
     return WAITING_BROADCAST_POST
 
@@ -1970,11 +1969,18 @@ async def broadcast_receive_post(update: Update, context: ContextTypes.DEFAULT_T
         "message_id": message.message_id,
     }
 
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔙 Reklamani bekor qilish", callback_data="adm:bcastcancel")],
+            home_button_row(),
+        ]
+    )
     await message.reply_text(
         "🔗 Post ostiga qo'shimcha tugma (masalan kanalga havola) qo'shmoqchimisiz?\n\n"
         "Agar KERAK BO'LMASA - shunchaki 0 yozing.\n"
         "Agar KERAK BO'LSA - havolani yuboring (http:// yoki https:// bilan boshlanishi kerak).\n\n"
-        "Bekor qilish uchun /cancel yozing."
+        "Bekor qilish uchun /cancel yozing.",
+        reply_markup=keyboard,
     )
     return WAITING_BROADCAST_LINK
 
@@ -2058,6 +2064,7 @@ async def _show_broadcast_preview(update: Update, context: ContextTypes.DEFAULT_
         [
             [InlineKeyboardButton("✅ Ha, yuborish", callback_data="adm:bcastconfirm")],
             [InlineKeyboardButton("❌ Yo'q, bekor qilish", callback_data="adm:bcastcancel")],
+            home_button_row(),
         ]
     )
     await context.bot.send_message(
@@ -2080,14 +2087,27 @@ async def broadcast_confirm_callback(update: Update, context: ContextTypes.DEFAU
     pending = context.user_data.pop("broadcast_post", None)
     audience = context.user_data.pop("broadcast_audience", "all")
 
+    nav_keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")],
+            home_button_row(),
+        ]
+    )
+
     if not pending:
-        await query.edit_message_text("⚠️ Sessiya topilmadi. /admin orqali qaytadan boshlang.")
+        await query.edit_message_text(
+            "⚠️ Sessiya topilmadi. /admin orqali qaytadan boshlang.",
+            reply_markup=nav_keyboard,
+        )
         return ConversationHandler.END
 
     user_ids = get_broadcast_recipients(audience)
     if not user_ids:
         label = AUDIENCE_LABELS.get(audience, "foydalanuvchilar")
-        await query.edit_message_text(f"⚠️ Hozircha {label} yo'q.")
+        await query.edit_message_text(
+            f"⚠️ Hozircha {label} yo'q.",
+            reply_markup=nav_keyboard,
+        )
         return ConversationHandler.END
 
     markup = _broadcast_link_markup(pending)
@@ -2119,10 +2139,12 @@ async def broadcast_confirm_callback(update: Update, context: ContextTypes.DEFAU
             except Exception:
                 pass
 
+    # Reklama tarqatilgach chiqadigan xabar va ortga qaytish tugmalari
     await query.edit_message_text(
-        f"✅ Reklama yuborildi!\n"
-        f"Muvaffaqiyatli: {success}\n"
-        f"Yuborilmadi (bloklangan/o'chirilgan): {failed}"
+        f"✅ Reklama muvaffaqiyatli yuborildi!\n\n"
+        f"Muvaffaqiyatli: {success} ta\n"
+        f"Yuborilmadi (bloklangan/o'chirilgan): {failed} ta",
+        reply_markup=nav_keyboard,
     )
     return ConversationHandler.END
 
@@ -2132,14 +2154,26 @@ async def broadcast_confirm_cancel_callback(update: Update, context: ContextType
     await query.answer()
     context.user_data.pop("broadcast_post", None)
     context.user_data.pop("broadcast_audience", None)
-    await query.edit_message_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")],
+            home_button_row(),
+        ]
+    )
+    await query.edit_message_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
 async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("broadcast_audience", None)
     context.user_data.pop("broadcast_post", None)
-    await update.message.reply_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")],
+            home_button_row(),
+        ]
+    )
+    await update.message.reply_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
@@ -2210,10 +2244,14 @@ async def adsexcl_new_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:adsexcl")], home_button_row()]
+    )
     await query.edit_message_text(
         "👤 Reklama yuborilmaydigan foydalanuvchining ID raqamini yoki @username'ini yozing.\n\n"
         "Eslatma: foydalanuvchi botga kamida bir marta murojaat qilgan bo'lishi kerak.\n\n"
-        "Bekor qilish uchun /cancel yozing."
+        "Bekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
     )
     return WAITING_ADSEXCL_USER
 
@@ -2330,6 +2368,9 @@ async def adsalways_new_start(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:adsalways")], home_button_row()]
+    )
     await query.edit_message_text(
         "✅ 'Doim yuboriladi' ro'yxatiga qo'shish\n\n"
         "Quyidagilardan BIRINI yuboring:\n"
@@ -2337,7 +2378,8 @@ async def adsalways_new_start(update: Update, context: ContextTypes.DEFAULT_TYPE
         "  (botga kamida bir marta murojaat qilgan bo'lishi kerak)\n"
         "• Kanal/guruh havolasi yoki @username'i (bot u yerda ADMIN bo'lishi shart)\n"
         "• YOKI kanaldan/guruhdan istalgan xabarni shu yerga FORWARD qiling\n\n"
-        "Bekor qilish uchun /cancel yozing."
+        "Bekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
     )
     return WAITING_ADSALWAYS_ITEM
 
@@ -2529,7 +2571,10 @@ async def vip_receive_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     vip_until = get_vip_until(chat_id)
 
     await update.message.reply_text(
-        f"✅ VIP status berildi!\nFoydalanuvchi: {chat_id}\nMuddat: {days} kun\n"
+        Mana kodning qolgan to'liq qismi (`vip_receive_days` dan oxirigacha):
+
+```python
+        f"Foydalanuvchi: {chat_id}\nMuddat: {days} kun\n"
         f"Tugash sanasi: {vip_until}"
     )
 
@@ -2650,6 +2695,7 @@ async def db_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else "\n\nHozircha baza guruhi sozlanmagan (postlar admin bilan shaxsiy chatda saqlanmoqda)."
     )
 
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")], home_button_row()])
     await query.edit_message_text(
         "🗄 Baza guruhini sozlash\n\n"
         "1️⃣ Avval GURUH yarating va BOTNI shu guruhga ADMIN qilib qo'shing "
@@ -2659,7 +2705,8 @@ async def db_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "   • guruhning ochiq havolasi (masalan https://t.me/mygroup)\n"
         "   • YOKI guruhdan istalgan xabarni shu yerga FORWARD qiling "
         "(yopiq guruhlar uchun ham ishlaydigan eng ishonchli usul)\n"
-        f"{current_text}\n\nBekor qilish uchun /cancel yozing.",
+        f"{current_text}\n\nBekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
         parse_mode="Markdown",
     )
     return WAITING_DB_GROUP
@@ -2743,26 +2790,20 @@ async def db_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     set_setting("storage_chat_id", str(chat.id))
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
     await message.reply_text(
         f"✅ Baza guruhi sozlandi!\nGuruh: {chat.title or chat.id}\nID: {chat.id}\n\n"
         "Bundan buyon /add yoki /add_game orqali qo'shiladigan barcha postlar "
         "shu guruhda xavfsiz saqlanadi."
-        f"{pin_warning}\n\n"
-        "⚠️ MUHIM (ishonchlilik uchun QATTIQ TAVSIYA ETILADI): Render (yoki "
-        "boshqa serveringiz) sozlamalarida \"Environment\" bo'limiga quyidagini "
-        "QO'LDA qo'shing:\n\n"
-        f"STORAGE_CHAT_ID = {chat.id}\n\n"
-        "Sababi: bu ID hozircha faqat botning ma'lumotlar bazasida saqlangan. "
-        "Agar baza fayli biror sababdan yo'qolib qolsa (masalan qayta deploy "
-        "paytida), muhit o'zgaruvchisi bo'lmasa, bot 'qayerdan tiklashim kerak' "
-        "degan savolga javob topa olmay qoladi. Muhit o'zgaruvchisi esa fayl "
-        "tizimidan mustaqil - u har doim saqlanib qoladi."
+        f"{pin_warning}",
+        reply_markup=nav_keyboard,
     )
     return ConversationHandler.END
 
 
 async def db_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
+    await update.message.reply_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
@@ -2780,6 +2821,7 @@ async def vipchannel_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else "\n\nHozircha VIP kanal sozlanmagan."
     )
 
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")], home_button_row()])
     await query.edit_message_text(
         "📺 VIP kanalni sozlash\n\n"
         "1️⃣ Avval KANAL yarating (yopiq bo'lishi mumkin) va uning sozlamalarida "
@@ -2790,7 +2832,8 @@ async def vipchannel_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "3️⃣ Keyin shu yerga quyidagilardan BIRINI yuboring:\n"
         "   • kanalning ochiq havolasi (masalan https://t.me/mychannel)\n"
         "   • YOKI kanaldan istalgan xabarni shu yerga FORWARD qiling\n"
-        f"{current_text}\n\nBekor qilish uchun /cancel yozing.",
+        f"{current_text}\n\nBekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
         parse_mode="Markdown",
     )
     return WAITING_VIP_CHANNEL
@@ -2858,24 +2901,27 @@ async def vipchannel_receive(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return WAITING_VIP_CHANNEL
 
     set_setting("vip_channel_id", str(chat.id))
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
     await message.reply_text(
         f"✅ VIP kanal sozlandi!\nKanal: {chat.title or chat.id}\nID: {chat.id}\n\n"
         "Endi VIP statusi bor foydalanuvchilarning shu kanalga qo'shilish so'rovlari "
         "avtomatik tasdiqlanadi, VIP bo'lmaganlarniki e'tiborsiz qoldiriladi, va VIP "
-        "muddati tugagan foydalanuvchilar kanaldan avtomatik chiqarib yuboriladi."
+        "muddati tugagan foydalanuvchilar kanaldan avtomatik chiqarib yuboriladi.",
+        reply_markup=nav_keyboard,
     )
     return ConversationHandler.END
 
 
 async def vipchannel_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
+    await update.message.reply_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
 # ============ "AVTO QO'SHISH" KANALLARINI SOZLASH ============
 
 async def render_autoaccept_list(query):
-    """'Avto qo'shish' kanallari ro'yxatini inline tugmalar sifatida chizadi."""
+    """'Avto qo'shish' kanallari ro'yxatini inline tugmalar sifatida ko'rsatadi."""
     channels = get_auto_accept_channels_list()
     keyboard = [[InlineKeyboardButton("➕ Yangi kanal qo'shish", callback_data="adm:autoacceptnew")]]
     for chat_id, title in channels:
@@ -2887,7 +2933,7 @@ async def render_autoaccept_list(query):
         "🤖 'Avto qo'shish' kanallari ro'yxati:\n\n"
         "Quyidagi kanallarga yuborilgan HAR QANDAY qo'shilish so'rovi "
         "(VIP yoki oddiy foydalanuvchidan qat'i nazar) avtomatik tasdiqlanadi.\n\n"
-        "Kanalni o'chirish uchun uning tugmasini bosing."
+        "Kanalni o'chirish uchun uning ustiga bosing."
         if channels
         else "🤖 Hozircha 'Avto qo'shish' kanallari yo'q.\n\n"
         "Bu bo'limga kanallar qo'shsangiz, ularga yuborilgan har qanday qo'shilish "
@@ -2916,7 +2962,7 @@ async def adm_autoaccept_item_detail_callback(update: Update, context: ContextTy
 
     keyboard = [
         [InlineKeyboardButton("🗑 Kanalni o'chirish", callback_data=f"adm:autoacceptremove:{target_chat_id}")],
-        [InlineKeyboardButton("🔙 Orqaga", callback_data="adm:setautoaccept")],
+        [InlineKeyboardButton("🔙 Kanallar ro'yxatiga qaytish", callback_data="adm:setautoaccept")],
         home_button_row(),
     ]
     await query.edit_message_text(
@@ -2945,7 +2991,10 @@ async def autoaccept_new_start(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
 
     keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:setautoaccept")], home_button_row()]
+        [
+            [InlineKeyboardButton("🔙 Kanallar ro'yxatiga qaytish", callback_data="adm:setautoaccept")],
+            home_button_row(),
+        ]
     )
     await query.edit_message_text(
         "🤖 Yangi 'Avto qo'shish' kanalini qo'shish\n\n"
@@ -3034,13 +3083,14 @@ async def autoaccept_receive(update: Update, context: ContextTypes.DEFAULT_TYPE)
     keyboard = [[InlineKeyboardButton("➕ Yangi kanal qo'shish", callback_data="adm:autoacceptnew")]]
     for cid, t in channels:
         keyboard.append([InlineKeyboardButton(f"📺 {t}", callback_data=f"adm:autoacceptitem:{cid}")])
-    keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")])
+    keyboard.append([InlineKeyboardButton("🔙 Kanallar ro'yxatiga qaytish", callback_data="adm:setautoaccept")])
+    keyboard.append([InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")])
     keyboard.append(home_button_row())
 
     await message.reply_text(
-        f"✅ 'Avto qo'shish' kanali qo'shildi!\nKanal: {title}\nID: `{chat.id}`\n\n"
-        "Endi bu kanalga yuborilgan HAR QANDAY qo'shilish so'rovi (VIP yoki oddiy "
-        "foydalanuvchidan qat'i nazar) avtomatik tasdiqlanadi.",
+        f"✅ 'Avto qo'shish' kanali muvaffaqiyatli qo'shildi!\n\n"
+        f"📺 Kanal: {title}\n🆔 ID: `{chat.id}`\n\n"
+        "Endi bu kanalga yuborilgan HAR QANDAY qo'shilish so'rovi avtomatik tasdiqlanadi.",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="Markdown",
     )
@@ -3055,7 +3105,13 @@ async def autoaccept_back_to_list(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def autoaccept_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔙 Kanallar ro'yxatiga qaytish", callback_data="adm:setautoaccept")],
+            home_button_row(),
+        ]
+    )
+    await update.message.reply_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
@@ -3080,10 +3136,12 @@ async def vipspecial_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     existing = get_post_by_code(code)
     existing_note = "\n\n⚠️ Hozir bu kodga biriktirilgan post bor - yangisini yuborsangiz, ESKISI ALMASHTIRILADI." if existing else ""
 
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")], home_button_row()])
     await query.edit_message_text(
         f"{label}\n\n"
         "Postni yuboring (video, rasm, hujjat yoki oddiy matn bo'lishi mumkin)."
-        f"{existing_note}\n\nBekor qilish uchun /cancel yozing."
+        f"{existing_note}\n\nBekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
     )
     return WAITING_VIP_SPECIAL_POST
 
@@ -3124,13 +3182,15 @@ async def vipspecial_receive(update: Update, context: ContextTypes.DEFAULT_TYPE)
     save_codes([code], post_id)
 
     label = VIP_SPECIAL_LABELS[code]
-    await update.message.reply_text(f"✅ Saqlandi!\n{label}")
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
+    await update.message.reply_text(f"✅ Saqlandi!\n{label}", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
 async def vipspecial_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("vip_special_code", None)
-    await update.message.reply_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
+    await update.message.reply_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
@@ -3141,7 +3201,7 @@ async def handle_chat_join_request(update: Update, context: ContextTypes.DEFAULT
 
     vip_channel_id = get_vip_channel_id()
 
-    # Ro'yxatdagi istalgan "avto qo'shish" kanaliga so'rov kelgan bo'lsa darhol tasdiqlanadi
+    # Ro'yxatdagi istalgan "avto qo'shish" kanaliga so'rov kelsa avtomatik tasdiqlanadi
     if is_auto_accept_channel(chat_id):
         try:
             await context.bot.approve_chat_join_request(chat_id=chat_id, user_id=user_id)
@@ -3440,7 +3500,7 @@ def _count_posts_in_db() -> int:
 async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
     backup_chat_id = _get_backup_chat_id()
     if not backup_chat_id:
-        logger.warning("Bazani zaxiralash uchun chat topilmadi (baza guruhi ham, admin ham sozlanmagan).")
+        logger.warning("Bazani zaxiralash uchun chat topilmadi.")
         return {"ok": False, "reason": "no_chat", "pinned": False, "posts_count": 0, "chat_id": None, "error": None}
 
     if not os.path.exists(DB_PATH):
@@ -3450,10 +3510,7 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
     posts_count = _count_posts_in_db()
 
     if posts_count == 0 and previous_backup_message_id:
-        logger.warning(
-            "⚠️ Mahalliy baza BO'SH (0 ta post), lekin oldin zaxira mavjud - "
-            "xavfsizlik uchun zaxiralash O'TKAZIB YUBORILDI (yaxshi zaxira saqlanib qoladi)."
-        )
+        logger.warning("⚠️ Baza bo'sh bo'lgani uchun zaxiralash o'tkazib yuborildi.")
         return {
             "ok": False, "reason": "empty_skip", "pinned": False,
             "posts_count": posts_count, "chat_id": backup_chat_id, "error": None,
@@ -3475,8 +3532,8 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
             break
         except ChatMigrated as e:
             logger.warning(
-                "Guruh supergroup'ga aylantirilgan. Eski ID: %s -> Yangi ID: %s. "
-                "Sozlama avtomatik yangilanmoqda.", backup_chat_id, e.new_chat_id,
+                "Guruh supergroup'ga aylantirilgan. Eski ID: %s -> Yangi ID: %s.",
+                backup_chat_id, e.new_chat_id,
             )
             backup_chat_id = e.new_chat_id
             set_setting("storage_chat_id", str(backup_chat_id))
@@ -3489,7 +3546,7 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
         attempt += 1
 
     if sent is None:
-        logger.error("Bazani zaxiralashda (yuklashda) xatolik yuz berdi: %s", last_error, exc_info=last_error)
+        logger.error("Bazani zaxiralashda xatolik: %s", last_error)
         return {
             "ok": False, "reason": "upload_failed", "pinned": False,
             "posts_count": posts_count, "chat_id": backup_chat_id,
@@ -3503,10 +3560,7 @@ async def backup_database(context: ContextTypes.DEFAULT_TYPE) -> dict:
         )
         pinned_ok = True
     except Exception:
-        logger.warning(
-            "Zaxira xabarini PIN qilib bo'lmadi - botda 'Pin messages' huquqi "
-            "borligini tekshiring (aks holda tiklash ishlamaydi)."
-        )
+        pass
 
     set_setting("last_backup_message_id", str(sent.message_id))
 
@@ -3538,15 +3592,11 @@ async def backup_database_job(context: ContextTypes.DEFAULT_TYPE):
                     chat_id=admin_id,
                     text=(
                         "🚨 DIQQAT: Baza zaxirasi yuklandi, LEKIN PIN QILINMADI!\n\n"
-                        "Bu degani - agar bot qayta ishga tushsa (masalan qayta "
-                        "deploy qilinganda), u bu zaxirani TOPA OLMAYDI va "
-                        "BO'SH bazadan boshlaydi - barcha postlar yo'qoladi!\n\n"
-                        "Iltimos, tezda tuzating: guruh sozlamalari → "
-                        "Administrators → botingiz → 'Pin Messages' huquqini yoqing."
+                        "Guruh sozlamalari → Administrators → botingiz → 'Pin Messages' huquqini yoqing."
                     ),
                 )
             except Exception:
-                logger.exception("Pin muammosi haqida adminga (%s) xabar yuborib bo'lmadi.", admin_id)
+                pass
     elif not pin_problem_now and was_already_warned and result.get("ok"):
         set_setting("pin_problem_warned", "0")
 
@@ -3555,7 +3605,7 @@ _BACKUP_REASON_LABELS = {
     "success": "Muvaffaqiyatli yuklandi",
     "no_chat": "Saqlash chati topilmadi (baza guruhi sozlanmagan)",
     "no_file": "Mahalliy baza fayli topilmadi",
-    "empty_skip": "Baza bo'sh - xavfsizlik uchun o'tkazib yuborildi (eski zaxira saqlanib qoldi)",
+    "empty_skip": "Baza bo'sh - xavfsizlik uchun o'tkazib yuborildi",
     "upload_failed": "Yuklashda xatolik yuz berdi",
 }
 
@@ -3572,10 +3622,10 @@ async def adm_backupnow_callback(update: Update, context: ContextTypes.DEFAULT_T
     lines = ["🔄 Zaxiralash natijasi:\n"]
     lines.append(f"Holat: {'✅ Muvaffaqiyatli' if result['ok'] else '❌ Muvaffaqiyatsiz'}")
     lines.append(f"Sabab: {_BACKUP_REASON_LABELS.get(result['reason'], result['reason'])}")
-    lines.append(f"Postlar soni (mahalliy bazada): {result['posts_count']}")
+    lines.append(f"Postlar soni: {result['posts_count']}")
     lines.append(f"Saqlash chati ID: {result['chat_id']}")
     if result["ok"]:
-        pin_text = "✅ Ha" if result["pinned"] else "❌ Yo'q (MUAMMO - tiklash ishlamaydi!)"
+        pin_text = "✅ Ha" if result["pinned"] else "❌ Yo'q (Pin messages huquqini yoqing)"
         lines.append(f"PIN qilindi: {pin_text}")
     elif result.get("error"):
         lines.append(f"\n⚠️ Texnik tafsilot:\n{result['error']}")
@@ -3602,7 +3652,7 @@ async def _restore_from_pinned_backup(bot) -> dict:
 
     init_db()
     posts_count = _count_posts_in_db()
-    logger.info("✅ Baza muvaffaqiyatli zaxiradan tiklandi (%s), postlar: %s.", DB_PATH, posts_count)
+    logger.info("✅ Baza muvaffaqiyatli tiklandi, postlar: %s.", posts_count)
     return {"ok": True, "reason": "success", "posts_count": posts_count}
 
 
@@ -3623,7 +3673,7 @@ async def adm_restorenow_callback(update: Update, context: ContextTypes.DEFAULT_
 
     reason_labels = {
         "success": "Muvaffaqiyatli tiklandi",
-        "no_chat": "Saqlash chati topilmadi (baza guruhi sozlanmagan)",
+        "no_chat": "Saqlash chati topilmadi",
         "no_pinned": "PIN qilingan zaxira topilmadi",
         "download_failed": "Yuklab olishda xatolik yuz berdi",
     }
@@ -3631,7 +3681,7 @@ async def adm_restorenow_callback(update: Update, context: ContextTypes.DEFAULT_
         "♻️ Tiklash natijasi:\n\n"
         f"Holat: {'✅ Muvaffaqiyatli' if result['ok'] else '❌ Muvaffaqiyatsiz'}\n"
         f"Sabab: {reason_labels.get(result['reason'], result['reason'])}\n"
-        f"Postlar soni (tiklangandan keyin): {result['posts_count']}"
+        f"Postlar soni: {result['posts_count']}"
     )
     keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")], home_button_row()]
     await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -3643,13 +3693,14 @@ async def dbupload_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return ConversationHandler.END
 
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Orqaga", callback_data="adm:menu")], home_button_row()])
     await query.edit_message_text(
         "📥 Bazani qo'lda tiklash\n\n"
-        "Iltimos, `.db` formatidagi SQLite faylni (masalan avval saqlab qo'ygan "
-        "`movies.db` nusxasini, yoki guruhdagi zaxirani) shu yerga HUJJAT "
+        "Iltimos, `.db` formatidagi SQLite faylni shu yerga HUJJAT "
         "(fayl) sifatida yuboring.\n\n"
         "⚠️ DIQQAT: bu joriy bazani BUTUNLAY almashtiradi!\n\n"
-        "Bekor qilish uchun /cancel yozing."
+        "Bekor qilish uchun /cancel yozing, yoki pastdagi tugmani bosing.",
+        reply_markup=keyboard,
     )
     return WAITING_DB_UPLOAD
 
@@ -3712,6 +3763,7 @@ async def dbupload_receive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             [InlineKeyboardButton("✅ Ha, almashtirish", callback_data="adm:dbuploadconfirm")],
             [InlineKeyboardButton("❌ Yo'q, bekor qilish", callback_data="adm:dbuploadcancel")],
+            home_button_row(),
         ]
     )
     await message.reply_text(
@@ -3731,15 +3783,20 @@ async def dbupload_confirm_callback(update: Update, context: ContextTypes.DEFAUL
     tmp_path = context.user_data.pop("dbupload_tmp_path", None)
     posts_count = context.user_data.pop("dbupload_posts_count", 0)
 
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
+
     if not tmp_path or not os.path.exists(tmp_path):
-        await query.edit_message_text("⚠️ Sessiya topilmadi yoki fayl yo'qolgan. /admin orqali qaytadan boshlang.")
+        await query.edit_message_text(
+            "⚠️ Sessiya topilmadi yoki fayl yo'qolgan. /admin orqali qaytadan boshlang.",
+            reply_markup=nav_keyboard,
+        )
         return ConversationHandler.END
 
     try:
         os.replace(tmp_path, DB_PATH)
     except Exception:
         logger.exception("Faylni almashtirishda xatolik.")
-        await query.edit_message_text("❌ Faylni almashtirishda ichki xatolik yuz berdi.")
+        await query.edit_message_text("❌ Faylni almashtirishda ichki xatolik yuz berdi.", reply_markup=nav_keyboard)
         return ConversationHandler.END
 
     init_db()
@@ -3747,7 +3804,8 @@ async def dbupload_confirm_callback(update: Update, context: ContextTypes.DEFAUL
     await query.edit_message_text(
         f"✅ Baza muvaffaqiyatli almashtirildi!\nTopilgan postlar soni: {posts_count}\n\n"
         "Tavsiya: endi shu yangi bazani darhol zaxiralab qo'ying - "
-        "/admin → 🔄 Hozir zaxiralash / tekshirish tugmasini bosing."
+        "/admin → 🔄 Hozir zaxiralash tugmasini bosing.",
+        reply_markup=nav_keyboard,
     )
     return ConversationHandler.END
 
@@ -3762,7 +3820,8 @@ async def dbupload_cancel_callback(update: Update, context: ContextTypes.DEFAULT
             os.remove(tmp_path)
         except Exception:
             pass
-    await query.edit_message_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
+    await query.edit_message_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
@@ -3774,7 +3833,8 @@ async def dbupload_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(tmp_path)
         except Exception:
             pass
-    await update.message.reply_text("Bekor qilindi.")
+    nav_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Admin panelga qaytish", callback_data="adm:menu")], home_button_row()])
+    await update.message.reply_text("Bekor qilindi.", reply_markup=nav_keyboard)
     return ConversationHandler.END
 
 
@@ -3878,6 +3938,8 @@ def main():
         fallbacks=[
             CommandHandler("cancel", broadcast_cancel),
             CallbackQueryHandler(adm_backhome_callback, pattern=r"^adm:backhome$"),
+            CallbackQueryHandler(broadcast_start, pattern=r"^adm:broadcast$"),
+            CallbackQueryHandler(broadcast_confirm_cancel_callback, pattern=r"^adm:bcastcancel$"),
         ],
     )
 
@@ -3919,6 +3981,7 @@ def main():
         fallbacks=[
             CommandHandler("cancel", db_cancel),
             CallbackQueryHandler(adm_backhome_callback, pattern=r"^adm:backhome$"),
+            CallbackQueryHandler(adm_menu_callback, pattern=r"^adm:menu$"),
         ],
     )
 
@@ -3934,9 +3997,11 @@ def main():
         fallbacks=[
             CommandHandler("cancel", vipchannel_cancel),
             CallbackQueryHandler(adm_backhome_callback, pattern=r"^adm:backhome$"),
+            CallbackQueryHandler(adm_menu_callback, pattern=r"^adm:menu$"),
         ],
     )
 
+    # "Avto qo'shish" faqat "➕ Yangi kanal qo'shish" bosilganda suhbat rejimiga kiradi
     autoaccept_conversation = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(autoaccept_new_start, pattern=r"^adm:autoacceptnew$"),
@@ -3967,6 +4032,7 @@ def main():
         fallbacks=[
             CommandHandler("cancel", vipspecial_cancel),
             CallbackQueryHandler(adm_backhome_callback, pattern=r"^adm:backhome$"),
+            CallbackQueryHandler(adm_menu_callback, pattern=r"^adm:menu$"),
         ],
     )
 
@@ -3986,6 +4052,7 @@ def main():
         fallbacks=[
             CommandHandler("cancel", dbupload_cancel),
             CallbackQueryHandler(adm_backhome_callback, pattern=r"^adm:backhome$"),
+            CallbackQueryHandler(adm_menu_callback, pattern=r"^adm:menu$"),
         ],
     )
 
@@ -4025,9 +4092,12 @@ def main():
     app.add_handler(CallbackQueryHandler(adm_adsalways_list_callback, pattern=r"^adm:adsalways$"))
     app.add_handler(CallbackQueryHandler(adm_adsalways_item_detail_callback, pattern=r"^adm:adsalwaysitem:-?\d+$"))
     app.add_handler(CallbackQueryHandler(adm_adsalways_remove_callback, pattern=r"^adm:adsalwaysremove:-?\d+$"))
+
+    # "Avto qo'shish" tugmalari boshqaruvi
     app.add_handler(CallbackQueryHandler(adm_autoaccept_menu_callback, pattern=r"^adm:setautoaccept$"))
     app.add_handler(CallbackQueryHandler(adm_autoaccept_item_detail_callback, pattern=r"^adm:autoacceptitem:-?\d+$"))
     app.add_handler(CallbackQueryHandler(adm_autoaccept_remove_callback, pattern=r"^adm:autoacceptremove:-?\d+$"))
+
     app.add_handler(CallbackQueryHandler(adm_editlist_callback, pattern=r"^adm:editlist$"))
     app.add_handler(CallbackQueryHandler(adm_postdetail_callback, pattern=r"^adm:editpost:\d+$"))
     app.add_handler(CallbackQueryHandler(adm_editvis_menu, pattern=r"^adm:editvis:\d+$"))
@@ -4035,6 +4105,7 @@ def main():
     app.add_handler(CallbackQueryHandler(adm_delpost_confirm_callback, pattern=r"^adm:delpost:\d+$"))
     app.add_handler(CallbackQueryHandler(adm_delpost_do_callback, pattern=r"^adm:delconfirm:\d+$"))
 
+    # Qo'shilish so'rovlarini avtomatik tasdiqlash
     app.add_handler(ChatJoinRequestHandler(handle_chat_join_request))
 
     app.add_handler(MessageHandler(filters.StatusUpdate.PINNED_MESSAGE, handle_pinned_service_message))
@@ -4046,11 +4117,7 @@ def main():
         app.job_queue.run_repeating(vip_expiry_job, interval=3600, first=30)
         app.job_queue.run_repeating(backup_database_job, interval=3600, first=60)
     else:
-        logger.warning(
-            "job_queue mavjud emas - VIP muddati tugaganda avtomatik kanaldan "
-            "chiqarish VA bazani avtomatik zaxiralash ISHLAMAYDI. "
-            "`pip install \"python-telegram-bot[job-queue]\"` bilan o'rnatishni tekshiring."
-        )
+        logger.warning("job_queue mavjud emas.")
 
     logger.info("Bot ishga tushdi...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
@@ -4059,3 +4126,5 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+        f"✅ VIP status berildi!\n

@@ -2571,9 +2571,6 @@ async def vip_receive_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     vip_until = get_vip_until(chat_id)
 
     await update.message.reply_text(
-        Mana kodning qolgan to'liq qismi (`vip_receive_days` dan oxirigacha):
-
-```python
         f"Foydalanuvchi: {chat_id}\nMuddat: {days} kun\n"
         f"Tugash sanasi: {vip_until}"
     )
